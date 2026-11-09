@@ -37,8 +37,8 @@
     </organization>
 
     <scm>
-        <connection>scm:git:git://github.com/Tnsor-Labs/brokoli-jvm.git</connection>
-        <developerConnection>scm:git:ssh://github.com:Tnsor-Labs/brokoli-jvm.git</developerConnection>
+        <connection>scm:git:https://github.com/Tnsor-Labs/brokoli-jvm.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/Tnsor-Labs/brokoli-jvm.git</developerConnection>
         <url>https://github.com/Tnsor-Labs/brokoli-jvm</url>
     </scm>
 
