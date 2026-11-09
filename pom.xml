@@ -43,7 +43,8 @@
     </scm>
 
     <modules>
-        <module>brokoli-core</module>
+        <module>brokoli-task</module>
+        <module>brokoli-pipeline</module>
     </modules>
 
     <properties>
@@ -54,6 +55,7 @@
         <maven-surefire-plugin.version>3.5.6</maven-surefire-plugin.version>
         <maven-jar-plugin.version>3.5.0</maven-jar-plugin.version>
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
+        <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
     </properties>
 
     <build>
@@ -93,6 +95,12 @@
                             </goals>
                         </execution>
                     </executions>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <version>${maven-enforcer-plugin.version}</version>
                 </plugin>
             </plugins>
         </pluginManagement>

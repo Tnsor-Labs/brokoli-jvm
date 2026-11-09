@@ -12,10 +12,10 @@
         <version>0.1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>brokoli-core</artifactId>
+    <artifactId>brokoli-pipeline</artifactId>
     <packaging>jar</packaging>
-    <name>Brokoli Core</name>
-    <description>Pipeline authoring and Brokoli IR emission</description>
+    <name>Brokoli Pipeline</name>
+    <description>Pipeline authoring, Brokoli IR emission and task bundle packaging</description>
 
     <build>
         <plugins>
