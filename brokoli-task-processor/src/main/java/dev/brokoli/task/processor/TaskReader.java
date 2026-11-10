@@ -13,6 +13,7 @@ import javax.lang.model.element.VariableElement;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 
 final class TaskReader {
 
@@ -72,6 +73,11 @@ final class TaskReader {
             throw new InvalidTaskException(label + " has a blank @Task name; leave it out to use the method name",
                     method);
         }
+        OptionalInt surrogate = UnicodeText.unpairedSurrogate(explicit);
+        if (surrogate.isPresent()) {
+            throw new InvalidTaskException(label + " has a @Task name with an unpaired surrogate at index "
+                    + surrogate.getAsInt() + "; Brokoli text must be valid Unicode", method);
+        }
         return explicit;
     }
 
@@ -122,8 +128,7 @@ final class TaskReader {
             declaration.put(Bptd.REQUIRED, true);
         } else {
             declaration.put(Bptd.REQUIRED, false);
-            declaration.put(Bptd.DEFAULT, DefaultReader.read(fallback.value(), type, parameter.asType(), context,
-                    parameter));
+            declaration.put(Bptd.DEFAULT, DefaultReader.read(fallback.value(), type, context, parameter));
         }
         return declaration;
     }

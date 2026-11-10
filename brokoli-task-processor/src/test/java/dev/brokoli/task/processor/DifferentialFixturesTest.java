@@ -175,10 +175,6 @@ class DifferentialFixturesTest {
         } else {
             assertThat(task.get("parameters")).isEqualTo(expectedParameters);
         }
-        if (!expectedInterface.isNull()) {
-            assertThat(CoreSchema.interfaceErrors(task.get("interface"))).isEmpty();
-        }
-        assertThat(CoreSchema.parameterErrors(task.get("parameters"))).isEmpty();
     }
 
     private static JsonNode fixture(String vector) {

@@ -3,7 +3,10 @@ package dev.brokoli.task.processor;
 import dev.brokoli.task.processor.TestCompiler.Compilation;
 import dev.brokoli.task.processor.TestCompiler.Source;
 
+import javax.annotation.processing.Processor;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 final class Fixtures {
 
@@ -51,12 +54,21 @@ final class Fixtures {
     }
 
     static Compilation compileTasks(Path output, String body) {
-        return TestCompiler.compile(output, Source.of(TASKS, HEADER + "public final class Tasks {\n" + body + "\n}\n"),
-                TYPE_USE_NULLABLE, DECLARATION_NULLABLE);
+        return compileTasks(output, body, List.of());
     }
 
-    static Compilation compileUnit(Path output, String qualifiedName, String unit) {
-        return TestCompiler.compile(output, Source.of(qualifiedName, HEADER + unit), TYPE_USE_NULLABLE,
-                DECLARATION_NULLABLE);
+    static Compilation compileTasks(Path output, String body, List<Processor> otherProcessors) {
+        return compile(output, otherProcessors, Source.of(TASKS, HEADER + "public final class Tasks {\n" + body
+                + "\n}\n"));
+    }
+
+    static Compilation compileUnit(Path output, String qualifiedName, String unit, Source... more) {
+        return compile(output, List.of(), Source.of(qualifiedName, HEADER + unit), more);
+    }
+
+    private static Compilation compile(Path output, List<Processor> otherProcessors, Source unit, Source... more) {
+        List<Source> sources = new ArrayList<>(List.of(unit, TYPE_USE_NULLABLE, DECLARATION_NULLABLE));
+        sources.addAll(List.of(more));
+        return TestCompiler.compile(output, otherProcessors, sources.toArray(Source[]::new));
     }
 }

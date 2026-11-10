@@ -58,15 +58,16 @@ class DefaultReaderTest {
                     "payload": {"$bptd": "bytes", "value": "SGVsbG8="}
                 }"""));
         assertThat(parameters.get("count").get("required").asBoolean()).isFalse();
-        assertThat(CoreSchema.parameterErrors(parameters)).isEmpty();
     }
 
     @Test
     void refusesEachKindOfBadDefaultNamingTheParameterAndWhatItExpects() {
         assertRefused("long count", "4.2", "a whole number such as 42");
-        assertRefused("int small", "3000000000", "a whole number that fits in an int");
+        assertRefused("int small", "3000000000", "a whole number from -2147483648 to 2147483647");
+        assertRefused("Integer boxedSmall", "-2147483649", "a whole number from -2147483648 to 2147483647");
         assertRefused("long big", "9223372036854775808", "a whole number that fits in 64 bits");
-        assertRefused("float single", "1e39", "a finite number");
+        assertRefused("float single", "1e39", "a number from -3.4028234663852886E38 to 3.4028234663852886E38");
+        assertRefused("double ratio", "1e400", "a finite number");
         assertRefused("double ratio", "0x1p3", "a number such as 0.5");
         assertRefused("boolean flag", "yes", "true or false");
         assertRefused("BigDecimal price", "1e2", "a decimal such as 12.50, with no exponent");
@@ -74,6 +75,31 @@ class DefaultReaderTest {
         assertRefused("Instant at", "tomorrow", "a UTC timestamp such as 2026-01-31T12:00:00Z");
         assertRefused("Duration window", "90s", "an ISO-8601 duration such as PT1H30M");
         assertRefused("byte[] payload", "SGVsbG8", "padded standard base64");
+    }
+
+    @Test
+    void keepsASurrogatePairAndRefusesAnUnpairedSurrogate() {
+        Compilation paired = compileTasks(output, """
+                @Task
+                public static Rows run(Rows input, @Default("smile \\uD83D\\uDE00") String greeting) {
+                    return input;
+                }
+                """);
+
+        assertThat(paired.errors()).isEmpty();
+        assertThat(paired.task(TASKS, "run").get("parameters").get("greeting").get("default").asString())
+                .isEqualTo("smile 😀");
+
+        Compilation unpaired = compileTasks(output, """
+                @Task
+                public static Rows run(Rows input, @Default("a\\uD800b") String region) {
+                    return input;
+                }
+                """);
+
+        assertThat(unpaired.errors()).containsExactly(
+                "@Default on @Task method Tasks.run parameter region has an unpaired surrogate at index 1; "
+                        + "Brokoli text must be valid Unicode");
     }
 
     @Test

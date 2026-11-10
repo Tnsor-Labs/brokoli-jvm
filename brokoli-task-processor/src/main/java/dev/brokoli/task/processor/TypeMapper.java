@@ -3,6 +3,8 @@ package dev.brokoli.task.processor;
 import javax.lang.model.AnnotatedConstruct;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.RecordComponentElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
@@ -14,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 final class TypeMapper {
@@ -24,15 +27,17 @@ final class TypeMapper {
     private static final String LIST = "java.util.List";
     private static final String MAP = "java.util.Map";
     private static final String STRING = "java.lang.String";
+    private static final String INTEGER = "java.lang.Integer";
+    private static final String FLOAT = "java.lang.Float";
+    private static final String PRIVATE_TYPE = " is private; make it package-private or public";
+    private static final String NOT_PUBLIC_TYPE = " is not public and is in another package; make it public";
     private static final String SUPPORTED =
             "long, int, double, float, boolean (or their boxed types), String, BigDecimal, LocalDate, Instant, "
                     + "Duration, byte[], an enum, a record, List<T> or Map<String, T>";
 
     private static final Map<String, String> DECLARED_KINDS = Map.ofEntries(
             Map.entry("java.lang.Long", Bptd.INT64),
-            Map.entry("java.lang.Integer", Bptd.INT64),
             Map.entry("java.lang.Double", Bptd.FLOAT64),
-            Map.entry("java.lang.Float", Bptd.FLOAT64),
             Map.entry("java.lang.Boolean", Bptd.BOOLEAN),
             Map.entry(STRING, Bptd.STRING),
             Map.entry("java.math.BigDecimal", Bptd.DECIMAL),
@@ -45,6 +50,7 @@ final class TypeMapper {
     }
 
     Map<String, Object> datasetRow(TypeMirror type, String context, Element at) {
+        requireResolved(type);
         if (isRows(type)) {
             return null;
         }
@@ -89,13 +95,30 @@ final class TypeMapper {
 
     private Map<String, Object> describe(TypeMirror type, String context, Element at, Set<String> enclosingRecords) {
         return switch (type.getKind()) {
-            case LONG, INT -> kind(Bptd.INT64);
-            case DOUBLE, FLOAT -> kind(Bptd.FLOAT64);
+            case LONG -> kind(Bptd.INT64);
+            case INT -> intType();
+            case DOUBLE -> kind(Bptd.FLOAT64);
+            case FLOAT -> floatType();
             case BOOLEAN -> kind(Bptd.BOOLEAN);
             case ARRAY -> describeArray((ArrayType) type, context, at);
             case DECLARED -> describeDeclared((DeclaredType) type, context, at, enclosingRecords);
+            case ERROR -> throw new UnresolvedTypeException(type);
             default -> throw unsupported(type, context, at);
         };
+    }
+
+    private static Map<String, Object> intType() {
+        Map<String, Object> type = kind(Bptd.INT64);
+        type.put(Bptd.MINIMUM, Integer.toString(Integer.MIN_VALUE));
+        type.put(Bptd.MAXIMUM, Integer.toString(Integer.MAX_VALUE));
+        return type;
+    }
+
+    private static Map<String, Object> floatType() {
+        Map<String, Object> type = kind(Bptd.FLOAT64);
+        type.put(Bptd.MINIMUM, (double) -Float.MAX_VALUE);
+        type.put(Bptd.MAXIMUM, (double) Float.MAX_VALUE);
+        return type;
     }
 
     private Map<String, Object> describeArray(ArrayType type, String context, Element at) {
@@ -108,6 +131,12 @@ final class TypeMapper {
     private Map<String, Object> describeDeclared(DeclaredType type, String context, Element at,
             Set<String> enclosingRecords) {
         String name = qualifiedName(type);
+        if (name.equals(INTEGER)) {
+            return intType();
+        }
+        if (name.equals(FLOAT)) {
+            return floatType();
+        }
         String kind = DECLARED_KINDS.get(name);
         if (kind != null) {
             return kind(kind);
@@ -120,7 +149,7 @@ final class TypeMapper {
         }
         TypeElement element = (TypeElement) type.asElement();
         if (element.getKind() == ElementKind.ENUM) {
-            return describeEnum(element);
+            return describeEnum(element, context, at);
         }
         if (element.getKind() == ElementKind.RECORD) {
             return describeRecord(element, context, at, enclosingRecords);
@@ -150,12 +179,17 @@ final class TypeMapper {
         return map;
     }
 
-    private static Map<String, Object> describeEnum(TypeElement element) {
+    private static Map<String, Object> describeEnum(TypeElement element, String context, Element at) {
+        requireReachable(element, context, at);
         List<String> constants = new ArrayList<>();
         for (Element enclosed : element.getEnclosedElements()) {
             if (enclosed.getKind() == ElementKind.ENUM_CONSTANT) {
                 constants.add(enclosed.getSimpleName().toString());
             }
+        }
+        if (constants.isEmpty()) {
+            throw new InvalidTaskException(context + " is enum " + element.getQualifiedName()
+                    + ", which has no constants; a Brokoli enum needs at least one value", at);
         }
         Map<String, Object> enumeration = kind(Bptd.ENUM);
         enumeration.put(Bptd.VALUES, constants);
@@ -164,6 +198,7 @@ final class TypeMapper {
 
     private Map<String, Object> describeRecord(TypeElement record, String context, Element at,
             Set<String> enclosingRecords) {
+        requireReachable(record, context, at);
         String recordName = record.getQualifiedName().toString();
         if (enclosingRecords.contains(recordName)) {
             throw new InvalidTaskException(context + " makes record " + record.getSimpleName()
@@ -222,11 +257,58 @@ final class TypeMapper {
                     + "; give it its type arguments", at);
         }
         TypeMirror argument = arguments.get(index);
+        requireResolved(argument);
         if (argument.getKind() == TypeKind.WILDCARD || argument.getKind() == TypeKind.TYPEVAR) {
             throw new InvalidTaskException(context + " is a " + type
                     + "; a Brokoli type needs concrete type arguments, not wildcards or type variables", at);
         }
         return argument;
+    }
+
+    private static void requireResolved(TypeMirror type) {
+        if (type.getKind() == TypeKind.ERROR) {
+            throw new UnresolvedTypeException(type);
+        }
+        if (type instanceof DeclaredType declared) {
+            declared.getTypeArguments().forEach(TypeMapper::requireResolved);
+        }
+    }
+
+    private static void requireReachable(TypeElement type, String context, Element at) {
+        PackageElement generatedPackage = packageOf(at);
+        for (Element enclosing = type; enclosing instanceof TypeElement nested;
+                enclosing = enclosing.getEnclosingElement()) {
+            Optional<String> hidden = hiddenFrom(generatedPackage, nested);
+            if (hidden.isPresent()) {
+                throw new InvalidTaskException(context + " is " + type.getQualifiedName()
+                        + ", which the generated task class in " + packageLabel(generatedPackage) + " cannot reach: "
+                        + nested.getQualifiedName() + hidden.get(), at);
+            }
+        }
+    }
+
+    private static Optional<String> hiddenFrom(PackageElement generatedPackage, TypeElement type) {
+        Set<Modifier> modifiers = type.getModifiers();
+        if (modifiers.contains(Modifier.PRIVATE)) {
+            return Optional.of(PRIVATE_TYPE);
+        }
+        boolean samePackage = packageOf(type).getQualifiedName().contentEquals(generatedPackage.getQualifiedName());
+        if (!modifiers.contains(Modifier.PUBLIC) && !samePackage) {
+            return Optional.of(NOT_PUBLIC_TYPE);
+        }
+        return Optional.empty();
+    }
+
+    private static String packageLabel(PackageElement element) {
+        return element.isUnnamed() ? "the unnamed package" : "package " + element.getQualifiedName();
+    }
+
+    private static PackageElement packageOf(Element element) {
+        Element enclosing = element;
+        while (!(enclosing instanceof PackageElement)) {
+            enclosing = enclosing.getEnclosingElement();
+        }
+        return (PackageElement) enclosing;
     }
 
     private static String qualifiedName(DeclaredType type) {

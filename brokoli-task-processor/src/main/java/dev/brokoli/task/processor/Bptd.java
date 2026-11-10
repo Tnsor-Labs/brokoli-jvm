@@ -14,6 +14,8 @@ final class Bptd {
 
     static final String KIND = "kind";
     static final String NULLABLE = "nullable";
+    static final String MINIMUM = "minimum";
+    static final String MAXIMUM = "maximum";
     static final String ITEMS = "items";
     static final String KEYS = "keys";
     static final String VALUES = "values";

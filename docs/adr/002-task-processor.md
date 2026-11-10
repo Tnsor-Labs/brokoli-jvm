@@ -21,7 +21,7 @@ Two facts about the JVM shape the design:
 
 ## Decision
 
-`brokoli-task-processor` is an annotation processor, in its own artifact. It writes one file per class that declares tasks: `META-INF/brokoli/tasks/<binary class name>.json`. The file holds `format` (`brokoli.jvm-tasks/v1`), the class, and for each task its method, display name, node interface (or `null`) and pipeline parameters. The bundle plugin and the pipeline builder read this file; nothing reads the annotations at run time.
+`brokoli-task-processor` is an annotation processor, in its own artifact. It writes one file per class that declares tasks: `META-INF/brokoli/tasks/<binary class name>.json`. The file is UTF-8 whatever the build's source encoding, written through a strict encoder. It holds `format` (`brokoli.jvm-tasks/v1`), the class, and for each task its method, display name, node interface (or `null`) and pipeline parameters. The bundle plugin and the pipeline builder read this file; nothing reads the annotations at run time.
 
 The interface follows Python's inference rule for rule:
 
@@ -34,8 +34,10 @@ Types map as in Python:
 
 | Java | BPTD kind |
 |---|---|
-| `long`, `int` and their boxed types | `int64` |
-| `double`, `float` and their boxed types | `float64` |
+| `long`, `Long` | `int64` |
+| `int`, `Integer` | `int64` with `"minimum": "-2147483648"` and `"maximum": "2147483647"` |
+| `double`, `Double` | `float64` |
+| `float`, `Float` | `float64` with `minimum` and `maximum` at `-3.4028234663852886E38` and `3.4028234663852886E38` |
 | `boolean`, `Boolean` | `boolean` |
 | `String` | `string` |
 | `BigDecimal` | `decimal` |
@@ -43,10 +45,14 @@ Types map as in Python:
 | `Instant` | `timestamp` |
 | `Duration` | `duration` |
 | `byte[]` | `bytes` |
-| an enum, whose values are its constant names | `enum` |
+| an enum with at least one constant, whose values are its constant names | `enum` |
 | `List<T>` | `array` |
 | `Map<String, T>` | `map` |
 | a record | `record` |
+
+The bounds on `int` and `float` apply wherever the type appears: a parameter, a record field, a list item or a map value. Core checks them on every value and every default (`pkg/taskinterface/value.go`), so it refuses a value the task could not hold instead of passing it on.
+
+A record or enum must be reachable from the task's package, because the generated entry method lives there and has to build the record and read the constants. Neither it nor any class it is nested in may be `private`, and each must be `public` when it is in another package.
 
 Nullability works like this:
 
@@ -61,6 +67,10 @@ A `@Default` value is read as its parameter's type and written in the form core'
   - a timestamp in UTC with `Z`;
   - a duration with one sign;
   - no negative zero.
+- **Bounds:** an `int` or `float` default must lie inside the bounds above.
+- **Text:** a `@Default` value and a `@Task` name must be valid Unicode, so an unpaired surrogate is refused. Canonicalization rule 1 rejects invalid Unicode, and a lenient UTF-8 writer turns the surrogate into `?` without an error.
+
+A type that does not resolve yet, because another processor generates it in a later round or because an import is missing, is not an error of this processor. The class is read again in the next round. If the type still does not resolve when processing ends, the class gets no task file and javac reports the missing symbol.
 
 Anything the processor cannot describe is a compile error on that method or parameter. The message starts with `@Task method Class.method`, then the parameter and the path inside it, such as `@Task method Tasks.run parameter shift.starts[] is a java.time.LocalTime, which has no Brokoli type; use ...`. A class with an invalid task gets no task file.
 
@@ -71,19 +81,21 @@ The interface digest is computed by the bundle plugin, from the interface in thi
 ### Positive
 
 - The task interface is derived from the signature at compile time, so the two cannot drift. This is ADR-036's main claim for a JVM SDK.
-- The output is checked against core itself. The tests compile Java declarations for core's six differential vectors and compare the result field by field, and validate every interface and parameter set against core's schema. CI fails when the vendored copies differ from core.
+- The output is checked against core itself. The tests compile Java declarations for core's six differential vectors and compare the result field by field. Every task file any test writes is validated against core's schema, and CI fails when the vendored copies differ from core.
 - A mistake shows up in the IDE as a compile error on the line that caused it, not as a failed run.
 
 ### Negative
 
 - Python skips a parameter it cannot type, with a warning. Java refuses it, because the generated entry method (next PR) has to convert every parameter it passes to the task, and it cannot convert a type it does not know.
 - `@Default` covers scalars only. A default for a `List`, `Map` or record parameter is refused.
+- An edge from a producer with no bounds, such as a Python `int`, to a JVM `int` is `unverified` in core's assignability check, not compatible. Core does not block an `unverified` edge (`engine/validate.go`), and its bound check still refuses a value out of range at run time.
 - Builds on JDK 23 and later must name the processor, for example in `annotationProcessorPaths`. The README shows how.
 
 ### Deferred
 
 - The generated `Class_BrokoliTasks` entry method, and the `entrypoint` it adds to the task file.
 - Per-node parameter bindings (ADR-032 section 7), which move parameters from pipeline level into the task interface, once core has a consumer for them.
+- Parameter collisions. Parameters are pipeline level, so two tasks in one pipeline can declare the same name. The pipeline builder must do what Python's `Pipeline._merge_parameter` does: share a declaration that is identical, and refuse one that differs in any way, whether type, `required` or default.
 
 ## Alternatives considered
 

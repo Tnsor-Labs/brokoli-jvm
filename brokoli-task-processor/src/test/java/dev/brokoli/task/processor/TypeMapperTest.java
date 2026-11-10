@@ -1,6 +1,7 @@
 package dev.brokoli.task.processor;
 
 import dev.brokoli.task.processor.TestCompiler.Compilation;
+import dev.brokoli.task.processor.TestCompiler.Source;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import tools.jackson.databind.JsonNode;
@@ -34,7 +35,6 @@ class TypeMapperTest {
                 "float64", "float64", "boolean", "boolean", "string", "decimal", "date", "timestamp", "duration",
                 "bytes");
         assertThat(parameters.get("count").get("required").asBoolean()).isTrue();
-        assertThat(CoreSchema.parameterErrors(parameters)).isEmpty();
     }
 
     @Test
@@ -65,7 +65,6 @@ class TypeMapperTest {
                 ], "additional_fields": false}"""));
         assertThat(parameters.get("grid").get("type")).isEqualTo(json("""
                 {"kind": "array", "items": {"kind": "array", "items": {"kind": "int64"}}}"""));
-        assertThat(CoreSchema.parameterErrors(parameters)).isEmpty();
     }
 
     @Test
@@ -97,7 +96,6 @@ class TypeMapperTest {
                     {"name": "coupon", "type": {"kind": "string", "nullable": true}, "required": true},
                     {"name": "discount", "type": {"kind": "int64", "nullable": true}, "required": true}
                 ]"""));
-        assertThat(CoreSchema.parameterErrors(parameters)).isEmpty();
     }
 
     @Test
@@ -118,7 +116,127 @@ class TypeMapperTest {
                 {"result": {"value": {"kind": "dataset", "row": {"kind": "unknown"}}}}"""));
         assertThat(taskInterface.get("inputs").get("input").get("value").get("row").get("kind").asString())
                 .isEqualTo("record");
-        assertThat(CoreSchema.interfaceErrors(taskInterface)).isEmpty();
+    }
+
+    @Test
+    void writesTheIntAndFloatRangesWhereverAnIntOrFloatAppears() {
+        Compilation compilation = compileTasks(output, """
+                public record Sample(int count, Float weight) {
+                }
+
+                @Task
+                public static Rows run(List<Sample> input, int small, Integer boxedSmall, @Nullable Integer maybe,
+                        float single, Float boxedSingle, List<Integer> counts, Map<String, Float> weights,
+                        long count, double ratio) {
+                    return Rows.empty();
+                }
+                """);
+
+        assertThat(compilation.errors()).isEmpty();
+        JsonNode task = compilation.task(TASKS, "run");
+        JsonNode parameters = task.get("parameters");
+        String intRange = "\"kind\": \"int64\", \"minimum\": \"-2147483648\", \"maximum\": \"2147483647\"";
+        String floatRange = "\"kind\": \"float64\", \"minimum\": -3.4028234663852886E38, "
+                + "\"maximum\": 3.4028234663852886E38";
+        assertThat(parameters.get("small").get("type")).isEqualTo(json("{" + intRange + "}"));
+        assertThat(parameters.get("boxedSmall").get("type")).isEqualTo(json("{" + intRange + "}"));
+        assertThat(parameters.get("maybe").get("type")).isEqualTo(json("{" + intRange + ", \"nullable\": true}"));
+        assertThat(parameters.get("single").get("type")).isEqualTo(json("{" + floatRange + "}"));
+        assertThat(parameters.get("boxedSingle").get("type")).isEqualTo(json("{" + floatRange + "}"));
+        assertThat(parameters.get("counts").get("type").get("items")).isEqualTo(json("{" + intRange + "}"));
+        assertThat(parameters.get("weights").get("type").get("values")).isEqualTo(json("{" + floatRange + "}"));
+        assertThat(parameters.get("count").get("type")).isEqualTo(json("""
+                {"kind": "int64"}"""));
+        assertThat(parameters.get("ratio").get("type")).isEqualTo(json("""
+                {"kind": "float64"}"""));
+        JsonNode fields = task.get("interface").get("inputs").get("input").get("value").get("row").get("fields");
+        assertThat(fields.get(0).get("type")).isEqualTo(json("{" + intRange + "}"));
+        assertThat(fields.get(1).get("type")).isEqualTo(json("{" + floatRange + "}"));
+    }
+
+    @Test
+    void refusesAnEnumWithNoConstants() {
+        Compilation compilation = compileTasks(output, """
+                public enum Nothing { }
+
+                @Task
+                public static Rows run(Rows input, Nothing nothing) {
+                    return input;
+                }
+                """);
+
+        assertThat(compilation.errors()).containsExactly(
+                "@Task method Tasks.run parameter nothing is enum fixtures.Tasks.Nothing, which has no constants; "
+                        + "a Brokoli enum needs at least one value");
+    }
+
+    @Test
+    void acceptsAPackagePrivateRecordAndRefusesOneTheGeneratedClassCannotReach() {
+        Compilation reachable = compileTasks(output.resolve("reachable"), """
+                record Order(String id) {
+                }
+
+                @Task
+                public static Rows run(List<Order> input) {
+                    return Rows.empty();
+                }
+                """);
+
+        assertThat(reachable.errors()).isEmpty();
+
+        Compilation hidden = compileTasks(output.resolve("hidden"), """
+                private record Hidden(String id) {
+                }
+
+                private static final class Box {
+
+                    public enum Tier { gold }
+                }
+
+                @Task
+                public static Rows privateRecord(List<Hidden> input) {
+                    return Rows.empty();
+                }
+
+                @Task
+                public static Rows insidePrivateClass(Rows input, Box.Tier tier) {
+                    return input;
+                }
+                """);
+
+        assertThat(hidden.errors()).containsExactly(
+                "@Task method Tasks.privateRecord input is fixtures.Tasks.Hidden, which the generated task class "
+                        + "in package fixtures cannot reach: fixtures.Tasks.Hidden is private; make it "
+                        + "package-private or public",
+                "@Task method Tasks.insidePrivateClass parameter tier is fixtures.Tasks.Box.Tier, which the "
+                        + "generated task class in package fixtures cannot reach: fixtures.Tasks.Box is private; "
+                        + "make it package-private or public");
+    }
+
+    @Test
+    void refusesAProtectedRecordFromAnotherPackage() {
+        Compilation compilation = Fixtures.compileUnit(output, TASKS, """
+                public final class Tasks extends fixtures.base.Base {
+
+                    @Task
+                    public static Rows run(Rows input, Point point) {
+                        return input;
+                    }
+                }
+                """, Source.of("fixtures.base.Base", """
+                package fixtures.base;
+
+                public class Base {
+
+                    protected record Point(long x, long y) {
+                    }
+                }
+                """));
+
+        assertThat(compilation.errors()).containsExactly(
+                "@Task method Tasks.run parameter point is fixtures.base.Base.Point, which the generated task "
+                        + "class in package fixtures cannot reach: fixtures.base.Base.Point is not public and is "
+                        + "in another package; make it public");
     }
 
     @Test

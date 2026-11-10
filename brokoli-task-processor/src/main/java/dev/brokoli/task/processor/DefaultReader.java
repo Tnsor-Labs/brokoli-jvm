@@ -1,8 +1,6 @@
 package dev.brokoli.task.processor;
 
 import javax.lang.model.element.Element;
-import javax.lang.model.type.TypeKind;
-import javax.lang.model.type.TypeMirror;
 import java.math.BigDecimal;
 import java.time.DateTimeException;
 import java.time.Duration;
@@ -12,6 +10,7 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.regex.Pattern;
 
 final class DefaultReader {
@@ -24,17 +23,20 @@ final class DefaultReader {
     private static final String TRUE = "true";
     private static final String FALSE = "false";
     private static final long NANOS_PER_SECOND = 1_000_000_000L;
-    private static final String BOXED_INT = "java.lang.Integer";
-    private static final String BOXED_FLOAT = "java.lang.Float";
 
     private DefaultReader() {
     }
 
-    static Object read(String text, Map<String, Object> type, TypeMirror javaType, String context, Element at) {
+    static Object read(String text, Map<String, Object> type, String context, Element at) {
+        OptionalInt surrogate = UnicodeText.unpairedSurrogate(text);
+        if (surrogate.isPresent()) {
+            throw new InvalidTaskException("@Default on " + context + " has an unpaired surrogate at index "
+                    + surrogate.getAsInt() + "; Brokoli text must be valid Unicode", at);
+        }
         String kind = (String) type.get(Bptd.KIND);
         return switch (kind) {
-            case Bptd.INT64 -> readInt64(text, javaType, context, at);
-            case Bptd.FLOAT64 -> readFloat64(text, javaType, context, at);
+            case Bptd.INT64 -> readInt64(text, type, context, at);
+            case Bptd.FLOAT64 -> readFloat64(text, type, context, at);
             case Bptd.BOOLEAN -> readBoolean(text, context, at);
             case Bptd.STRING -> text;
             case Bptd.ENUM -> readEnum(text, type, context, at);
@@ -48,7 +50,7 @@ final class DefaultReader {
         };
     }
 
-    private static Long readInt64(String text, TypeMirror javaType, String context, Element at) {
+    private static Long readInt64(String text, Map<String, Object> type, String context, Element at) {
         if (!INT64.matcher(text).matches()) {
             throw refused(text, context, "a whole number such as 42", at);
         }
@@ -58,22 +60,36 @@ final class DefaultReader {
         } catch (NumberFormatException tooLarge) {
             throw refused(text, context, "a whole number that fits in 64 bits", at);
         }
-        if (isInt(javaType) && (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE)) {
-            throw refused(text, context, "a whole number that fits in an int", at);
+        String minimum = (String) type.get(Bptd.MINIMUM);
+        String maximum = (String) type.get(Bptd.MAXIMUM);
+        boolean below = minimum != null && value < Long.parseLong(minimum);
+        boolean above = maximum != null && value > Long.parseLong(maximum);
+        if (below || above) {
+            throw refused(text, context, range("a whole number", minimum, maximum), at);
         }
         return value;
     }
 
-    private static Double readFloat64(String text, TypeMirror javaType, String context, Element at) {
+    private static Double readFloat64(String text, Map<String, Object> type, String context, Element at) {
         if (!NUMBER.matcher(text).matches()) {
             throw refused(text, context, "a number such as 0.5", at);
         }
         double value = Double.parseDouble(text);
-        boolean finite = isFloat(javaType) ? Float.isFinite((float) value) : Double.isFinite(value);
-        if (!finite) {
+        if (!Double.isFinite(value)) {
             throw refused(text, context, "a finite number", at);
         }
+        Double minimum = (Double) type.get(Bptd.MINIMUM);
+        Double maximum = (Double) type.get(Bptd.MAXIMUM);
+        boolean below = minimum != null && value < minimum;
+        boolean above = maximum != null && value > maximum;
+        if (below || above) {
+            throw refused(text, context, range("a number", minimum, maximum), at);
+        }
         return value == 0 ? 0.0 : value;
+    }
+
+    private static String range(String what, Object minimum, Object maximum) {
+        return what + " from " + minimum + " to " + maximum;
     }
 
     private static Boolean readBoolean(String text, String context, Element at) {
@@ -174,14 +190,6 @@ final class DefaultReader {
         tagged.put(Bptd.TAG, kind);
         tagged.put(Bptd.VALUE, value);
         return tagged;
-    }
-
-    private static boolean isInt(TypeMirror type) {
-        return type.getKind() == TypeKind.INT || TypeMapper.isDeclared(type, BOXED_INT);
-    }
-
-    private static boolean isFloat(TypeMirror type) {
-        return type.getKind() == TypeKind.FLOAT || TypeMapper.isDeclared(type, BOXED_FLOAT);
     }
 
     private static InvalidTaskException refused(String text, String context, String expected, Element at) {

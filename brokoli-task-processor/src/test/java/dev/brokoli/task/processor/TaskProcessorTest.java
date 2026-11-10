@@ -1,12 +1,14 @@
 package dev.brokoli.task.processor;
 
 import dev.brokoli.task.processor.TestCompiler.Compilation;
+import dev.brokoli.task.processor.TestCompiler.Source;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import tools.jackson.databind.JsonNode;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static dev.brokoli.task.processor.Fixtures.TASKS;
 import static dev.brokoli.task.processor.Fixtures.compileTasks;
@@ -236,6 +238,64 @@ class TaskProcessorTest {
 
         assertThat(compilation.errors()).containsExactly(
                 "@Task method Tasks.blank has a blank @Task name; leave it out to use the method name");
+    }
+
+    @Test
+    void readsATaskWhoseRecordAnotherProcessorGeneratesInTheNextRound() {
+        Source order = Source.of("fixtures.generated.Order", """
+                package fixtures.generated;
+
+                public record Order(String id, long quantity) {
+                }
+                """);
+
+        Compilation compilation = compileTasks(output, """
+                @Task
+                public static Rows run(List<fixtures.generated.Order> input) {
+                    return Rows.empty();
+                }
+                """, List.of(new SourceGenerator(order)));
+
+        assertThat(compilation.errors()).isEmpty();
+        assertThat(compilation.task(TASKS, "run").get("interface").get("inputs").get("input").get("value")
+                .get("row").get("fields")).isEqualTo(TestCompiler.JSON.readTree("""
+                [
+                    {"name": "id", "type": {"kind": "string"}, "required": true},
+                    {"name": "quantity", "type": {"kind": "int64"}, "required": true}
+                ]"""));
+    }
+
+    @Test
+    void leavesAMissingTypeToJavacAndWritesNoFile() {
+        Compilation compilation = compileTasks(output, """
+                @Task
+                public static Rows parameter(Rows input, Missing missing) {
+                    return input;
+                }
+
+                @Task
+                public static Rows nested(List<Missing> input, Map<String, List<Missing>> byKey) {
+                    return Rows.empty();
+                }
+                """);
+
+        assertThat(compilation.errors()).isNotEmpty().allSatisfy(error -> assertThat(error)
+                .startsWith("cannot find symbol"));
+        assertThat(Files.exists(compilation.taskFilePath(TASKS))).isFalse();
+    }
+
+    @Test
+    void refusesATaskNameWithAnUnpairedSurrogate() {
+        Compilation compilation = compileTasks(output, """
+                @Task(name = "Rollup \\uDE00")
+                public static Rows run(Rows input) {
+                    return input;
+                }
+                """);
+
+        assertThat(compilation.errors()).containsExactly(
+                "@Task method Tasks.run has a @Task name with an unpaired surrogate at index 7; Brokoli text "
+                        + "must be valid Unicode");
     }
 
     @Test
