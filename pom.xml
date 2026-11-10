@@ -45,6 +45,8 @@
     <modules>
         <module>brokoli-task</module>
         <module>brokoli-task-processor</module>
+        <module>brokoli-bundle</module>
+        <module>brokoli-maven-plugin</module>
         <module>brokoli-pipeline</module>
     </modules>
 
@@ -58,10 +60,15 @@
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
         <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
+        <maven-plugin-plugin.version>3.16.0</maven-plugin-plugin.version>
+        <maven-invoker-plugin.version>3.10.1</maven-invoker-plugin.version>
+        <maven-plugin-annotations.version>3.16.0</maven-plugin-annotations.version>
+        <maven.version>3.9.0</maven.version>
+        <javax.inject.version>1</javax.inject.version>
         <junit.version>6.1.3</junit.version>
         <assertj.version>3.27.7</assertj.version>
         <json-schema-validator.version>3.0.8</json-schema-validator.version>
-        <jackson.version>3.2.1</jackson.version>
+        <jackson.version>3.2.4</jackson.version>
     </properties>
 
     <dependencyManagement>

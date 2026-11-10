@@ -97,3 +97,5 @@ On the two gaps:
 ## Update (2026-11-10)
 
 Core closed the first gap in Tnsor-Labs/brokoli#981 (#978). In a pipeline that declares parameters, a task node now gets only the resolved typed values as kwargs, with defaults applied, and with `decimal`, `timestamp`, `duration`, `bytes` and an `int64` beyond 2^53 - 1 tagged. That is the form the generated entry method reads, so the first item under Negative no longer holds. In a pipeline that declares no parameters, a task still gets the run's string parameters, so a JVM task with parameters needs its pipeline to declare them, which the pipeline builder does.
+
+The helper that fills a null interface's `input` and `result` ports lives in `brokoli-bundle` (JVM-ADR-004), not `brokoli-pipeline`, because the bundle plugin is its first user. The pipeline builder will depend on `brokoli-bundle` for it, so the node's interface and the bundle's `interface_digest` still come from the same document.

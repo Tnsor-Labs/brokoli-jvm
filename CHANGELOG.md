@@ -11,6 +11,19 @@ Every entry names its owner.
 
 ### Added
 
+- **Task bundles** -- @DarzVadckawy. `brokoli-maven-plugin`'s `bundle` goal
+  writes one task-bundle/v2 archive per `@Task` method when the project is
+  packaged, and attaches it as `<finalName>-<method>.tar.gz` so `install`
+  and `deploy` publish it. A bundle holds the project's classes and
+  resources and its `compile` and `runtime` dependency jars under `lib/`,
+  and its manifest names the task's display name, its generated entry
+  method, the builder and the digest of the task's interface. The tar is
+  byte for byte what core's `brokoli bundle jvm` writes for the same files,
+  long and non-ASCII paths included. The goal refuses a project with no
+  task file, two dependency jars with the same file name, two tasks with
+  the same method name, a resource named `manifest.json` at the root, a
+  path that would be both a file and a directory, and symbolic links. `brokoli-bundle` holds the
+  packaging, for builds other than Maven.
 - **Pinned core contract** -- @DarzVadckawy. `core-contract/` holds the
   copies of core's schemas and fixtures the tests use, now including
   `task-bundle-v2.json`, and reference bundles made by core's own
