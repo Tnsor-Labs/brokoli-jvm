@@ -20,7 +20,7 @@ Decisions that only concern this SDK are recorded in [`docs/adr/`](docs/adr/READ
 
 ## Core's contract
 
-The schemas, fixtures and reference bundles this SDK is tested against are copies of core's, in [`core-contract/`](core-contract/README.md), pinned to the core commit in `core-contract/CORE_REF`. They are never edited by hand. To take a newer core, run `core-contract/vendor.sh` against a core checkout at that commit, update `CORE_REF`, and open the result as its own PR, ahead of any code that depends on it. It needs Go, because the reference bundles are built with core's own CLI.
+The schemas, fixtures and reference bundles this SDK is tested against are copies of core's, in [`core-contract/`](core-contract/README.md), pinned to the core commit in `core-contract/CORE_REF`. They are never edited by hand. To take a newer core, run `core-contract/vendor.sh` against a core checkout at that commit, update `CORE_REF`, and open the result as its own PR, ahead of any code that depends on it. It needs Go, because the reference bundles are built with core's own CLI. Some reference inputs have paths of up to 180 characters, on purpose, to cover how a tar writes long paths. On Windows, clone with `git config --global core.longpaths true` set, or into a short folder such as `C:\src`.
 
 ## What done means
 
