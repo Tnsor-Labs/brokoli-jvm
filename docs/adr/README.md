@@ -11,3 +11,4 @@ The format and the rules are core's, see its [ADR README](https://github.com/Tns
 | # | Title | Status |
 |---|---|---|
 | [JVM-ADR-001](./001-task-api.md) | Task API: `@Task`, `@Default`, `Row` and `Rows` | Accepted |
+| [JVM-ADR-002](./002-task-processor.md) | The task processor and its task file | Proposed |
