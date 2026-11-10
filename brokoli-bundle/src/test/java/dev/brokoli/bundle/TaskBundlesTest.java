@@ -122,6 +122,61 @@ class TaskBundlesTest {
     }
 
     @Test
+    void refusesAResourceAtTheManifestsPath() throws IOException {
+        Path classes = classes();
+        Path resource = write(classes.resolve("manifest.json"), "{\"format\":\"mine\"}");
+
+        assertThatThrownBy(() -> TaskBundles.of(classes, List.of(), null))
+                .isInstanceOf(BundleException.class)
+                .hasMessage(resource + " would be manifest.json in the task bundle, where the bundle's own manifest"
+                        + " goes; rename or move it");
+    }
+
+    @Test
+    void refusesAResourceInsideADirectoryNamedLikeTheManifest() throws IOException {
+        Path classes = classes();
+        Path resource = write(classes.resolve("manifest.json/notes.txt"), "notes");
+
+        assertThatThrownBy(() -> TaskBundles.of(classes, List.of(), null))
+                .isInstanceOf(BundleException.class)
+                .hasMessage(resource + " would be manifest.json/notes.txt in the task bundle, inside manifest.json,"
+                        + " where the bundle's own manifest goes; rename or move it");
+    }
+
+    @Test
+    void packagesAManifestJsonBelowTheBundleRoot() throws IOException {
+        Path classes = classes();
+        write(classes.resolve("config/manifest.json"), "{}");
+
+        Map<String, byte[]> files = filesOf(TaskBundles.of(classes, List.of(), null).get(0));
+
+        assertThat(files.get("config/manifest.json")).isEqualTo("{}".getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void refusesAFileAtThePathOfTheJarDirectory() throws IOException {
+        Path classes = classes();
+        Path resource = write(classes.resolve("lib"), "not a directory");
+        Path jar = write(project.resolve("repository/dep-1.0.jar"), "jar");
+
+        assertThatThrownBy(() -> TaskBundles.of(classes, List.of(jar), null))
+                .isInstanceOf(BundleException.class)
+                .hasMessage(resource + " would be the file lib in the task bundle, but " + jar
+                        + " would be lib/dep-1.0.jar, which needs lib to be a directory");
+    }
+
+    @Test
+    void packagesAResourceUnderLibNextToTheJars() throws IOException {
+        Path classes = classes();
+        write(classes.resolve("lib/README.txt"), "readme");
+        Path jar = write(project.resolve("repository/dep-1.0.jar"), "jar");
+
+        Map<String, byte[]> files = filesOf(TaskBundles.of(classes, List.of(jar), null).get(0));
+
+        assertThat(files.keySet()).contains("lib/README.txt", "lib/dep-1.0.jar");
+    }
+
+    @Test
     void refusesATaskFileOfAnotherFormat() throws IOException {
         Path classes = project.resolve("classes");
         write(classes.resolve("META-INF/brokoli/tasks/com.example.T.json"), "{\"format\":\"brokoli.jvm-tasks/v2\"}");

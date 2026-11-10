@@ -30,6 +30,7 @@ final class ProjectFiles {
         for (Path jar : jars) {
             project.addJar(jar);
         }
+        project.requireNoFileIsAlsoADirectory();
         return List.copyOf(project.files.values());
     }
 
@@ -92,11 +93,35 @@ final class ProjectFiles {
 
     private void add(String bundlePath, Path source) {
         Utf8.requireValid(bundlePath);
+        if (bundlePath.equals(BundleArchive.MANIFEST)) {
+            throw new BundleException(source + " would be " + BundleArchive.MANIFEST
+                    + " in the task bundle, where the bundle's own manifest goes; rename or move it");
+        }
         Path earlier = sources.putIfAbsent(bundlePath, source);
         if (earlier != null) {
             throw new BundleException(earlier + " and " + source + " would both be " + bundlePath
                     + " in the task bundle");
         }
         files.put(bundlePath, new BundleFile(bundlePath, read(source)));
+    }
+
+    private void requireNoFileIsAlsoADirectory() {
+        for (Map.Entry<String, Path> entry : sources.entrySet()) {
+            String bundlePath = entry.getKey();
+            for (int slash = bundlePath.indexOf('/'); slash >= 0; slash = bundlePath.indexOf('/', slash + 1)) {
+                String directory = bundlePath.substring(0, slash);
+                if (directory.equals(BundleArchive.MANIFEST)) {
+                    throw new BundleException(entry.getValue() + " would be " + bundlePath + " in the task bundle,"
+                            + " inside " + BundleArchive.MANIFEST + ", where the bundle's own manifest goes;"
+                            + " rename or move it");
+                }
+                Path file = sources.get(directory);
+                if (file != null) {
+                    throw new BundleException(file + " would be the file " + directory + " in the task bundle, but "
+                            + entry.getValue() + " would be " + bundlePath + ", which needs " + directory
+                            + " to be a directory");
+                }
+            }
+        }
     }
 }

@@ -21,7 +21,8 @@ Every entry names its owner.
   byte for byte what core's `brokoli bundle jvm` writes for the same files,
   long and non-ASCII paths included. The goal refuses a project with no
   task file, two dependency jars with the same file name, two tasks with
-  the same method name, and symbolic links. `brokoli-bundle` holds the
+  the same method name, a resource named `manifest.json` at the root, a
+  path that would be both a file and a directory, and symbolic links. `brokoli-bundle` holds the
   packaging, for builds other than Maven.
 - **Pinned core contract** -- @DarzVadckawy. `core-contract/` holds the
   copies of core's schemas and fixtures the tests use, now including

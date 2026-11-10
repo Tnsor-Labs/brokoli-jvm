@@ -31,8 +31,9 @@ public final class TaskBundles {
      *        {@code "brokoli-jvm/0.1.0"}, or {@code null} to leave {@code build} out
      * @return the bundles, one per task
      * @throws BundleException if there is no task file, a task file is not valid, two files would have the same
-     *         path in the bundle, a file is a symbolic link or cannot be read, or a path or name is not valid
-     *         Unicode
+     *         path in the bundle, a file would be the bundle's {@code manifest.json} or inside a directory of that
+     *         name, a file's path would also be the directory of another file, a file is a symbolic link or cannot
+     *         be read, or a path or name is not valid Unicode
      */
     public static List<TaskBundle> of(Path classesDirectory, List<Path> jars, String builder) {
         Objects.requireNonNull(classesDirectory, "classesDirectory");
