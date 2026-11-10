@@ -135,6 +135,14 @@ final class TestCompiler {
                     .toList();
         }
 
+        List<String> warningCodes() {
+            return diagnostics.stream()
+                    .filter(diagnostic -> diagnostic.getKind() == Diagnostic.Kind.WARNING
+                            || diagnostic.getKind() == Diagnostic.Kind.MANDATORY_WARNING)
+                    .map(Diagnostic::getCode)
+                    .toList();
+        }
+
         Path taskFilePath(String binaryName) {
             return output.resolve(TaskProcessor.TASK_FILE_DIRECTORY + binaryName + ".json");
         }

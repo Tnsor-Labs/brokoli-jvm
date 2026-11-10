@@ -299,6 +299,34 @@ class TaskProcessorTest {
     }
 
     @Test
+    void leavesTaskAndDefaultUnclaimedSoAnotherProcessorStillSeesThem() {
+        AnnotationRecorder later = new AnnotationRecorder();
+
+        Compilation compilation = compileTasks(output, """
+                @Task
+                public static Rows run(Rows input, @Default("eu") String region) {
+                    return input;
+                }
+                """, List.of(later));
+
+        assertThat(compilation.errors()).isEmpty();
+        assertThat(later.seen()).contains("dev.brokoli.task.Task", "dev.brokoli.task.Default");
+    }
+
+    @Test
+    void theOnlyWarningATaskGetsUnderXlintAllIsJavacsUnclaimedAnnotationsWarning() {
+        Compilation compilation = compileTasks(output, """
+                @Task
+                public static Rows run(Rows input, @Default("eu") String region) {
+                    return input;
+                }
+                """);
+
+        assertThat(compilation.errors()).isEmpty();
+        assertThat(compilation.warningCodes()).containsExactly("compiler.warn.proc.annotations.without.processors");
+    }
+
+    @Test
     void anInvalidTaskStopsOnlyItsOwnClassFile() {
         Compilation compilation = compileUnit(output, TASKS, """
                 public final class Tasks {
