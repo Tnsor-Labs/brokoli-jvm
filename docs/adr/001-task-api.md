@@ -86,3 +86,7 @@ The annotation processor (next PR, in its own `brokoli-task-processor` module) d
 - Annotation processor, generated entry method and interface JSON (#3, week 4).
 - `getDecimal`, reading exact decimal text and whole numbers.
 - Core's ADR-036 update on the entry point signature, owned by its maintainer.
+
+## Update (2026-11-10)
+
+`Row.getDecimal` is in. It reads a tagged decimal, `{"$bptd": "decimal", "value": "12.50"}`, exactly and with its scale. It reads a `Long` or `Integer` exactly, and a `Double` or `Float` through its decimal text, so `12.50` sent as a plain JSON number comes back as `12.5`. Anything else is refused, naming the column. The generated entry method that calls a task is [JVM-ADR-003](./003-generated-entry-method.md).

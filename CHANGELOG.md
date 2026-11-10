@@ -11,6 +11,16 @@ Every entry names its owner.
 
 ### Added
 
+- **Generated entry method** -- @DarzVadckawy. For every class with tasks
+  the processor generates `<Class>_BrokoliTasks`, with one entry method
+  per task that core's JVM harness calls with its `Map` of input rows and
+  run parameters. It reads them into the method's types, in the tagged
+  form core uses for decimals, timestamps, durations and bytes, ignores
+  run parameters the task does not declare, and writes back what the task
+  returns. A value of the wrong form is refused with a message naming
+  where it is, such as `input[3].amount`. The task file names each entry
+  method in its new `entrypoint` field. `Row.getDecimal` reads a tagged
+  decimal exactly, and a plain number through its decimal text.
 - **Task processor** -- @DarzVadckawy. `brokoli-task-processor` checks
   every `@Task` method at compile time and writes its task interface and
   pipeline parameters to `META-INF/brokoli/tasks/<class>.json`. It maps

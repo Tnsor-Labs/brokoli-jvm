@@ -1,5 +1,9 @@
 package dev.brokoli.task;
 
+import dev.brokoli.task.internal.TaskValueException;
+import dev.brokoli.task.internal.TaskValues;
+
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,6 +36,8 @@ public final class Row {
     private static final String NUMBER = "a number";
     private static final String WHOLE_NUMBER = "a whole number";
     private static final String BOOLEAN = "a boolean";
+    private static final String DECIMAL = "a decimal: a number or a tagged decimal";
+    private static final String NOT_A_TAGGED_DECIMAL = "a map that is not a tagged decimal";
     private static final String JSON_VALUE =
             "a JSON value (null, String, Boolean, Long, Integer, finite Double or Float, Iterable or Map)";
     private static final String NOT_FINITE = "a number that is not finite";
@@ -150,6 +156,33 @@ public final class Row {
             return number.doubleValue();
         }
         throw wrongType(column, NUMBER, value);
+    }
+
+    /**
+     * The column's value as a {@code BigDecimal}. A tagged decimal, such as
+     * {@code {"$bptd": "decimal", "value": "12.50"}}, is read exactly, with its scale. A whole
+     * number is read exactly too. A number with a fraction has already been decoded as a
+     * {@code Double}, so it is read through {@link BigDecimal#valueOf(double)}: {@code 12.50}
+     * written as a plain JSON number comes back as {@code 12.5}.
+     *
+     * @param column the column name
+     * @return the value
+     * @throws RowValueException if the column is missing, null, or neither a number nor a tagged
+     *         decimal
+     */
+    public BigDecimal getDecimal(String column) {
+        Object value = present(column, DECIMAL);
+        if (value instanceof Long || value instanceof Integer || value instanceof Double || value instanceof Float) {
+            return new BigDecimal(value.toString());
+        }
+        if (value instanceof Map) {
+            try {
+                return TaskValues.readDecimal(value);
+            } catch (TaskValueException notADecimal) {
+                throw new RowValueException(column, DECIMAL, NOT_A_TAGGED_DECIMAL);
+            }
+        }
+        throw wrongType(column, DECIMAL, value);
     }
 
     /**

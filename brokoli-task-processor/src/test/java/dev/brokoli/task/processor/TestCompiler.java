@@ -15,8 +15,12 @@ import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Stream;
 
 final class TestCompiler {
@@ -32,7 +37,7 @@ final class TestCompiler {
 
     private static final String BUILD_ENCODING_OTHER_THAN_UTF_8 = "ISO-8859-1";
     private static final List<String> OPTIONS =
-            List.of("--release", "17", "-encoding", BUILD_ENCODING_OTHER_THAN_UTF_8);
+            List.of("--release", "17", "-encoding", BUILD_ENCODING_OTHER_THAN_UTF_8, "-Xlint:all");
 
     private TestCompiler() {
     }
@@ -57,9 +62,21 @@ final class TestCompiler {
             task.setProcessors(processors);
             Compilation compilation = new Compilation(task.call(), diagnostics.getDiagnostics(), output);
             requireCoreSchema(output);
+            requireCleanTaskClasses(compilation.diagnostics());
             return compilation;
         } catch (IOException unreadable) {
             throw new UncheckedIOException(unreadable);
+        }
+    }
+
+    private static void requireCleanTaskClasses(List<Diagnostic<? extends JavaFileObject>> diagnostics) {
+        List<String> generated = diagnostics.stream()
+                .filter(diagnostic -> diagnostic.getSource() != null
+                        && diagnostic.getSource().getName().endsWith(TaskClassWriter.SUFFIX + ".java"))
+                .map(diagnostic -> diagnostic.getKind() + " " + diagnostic.getMessage(Locale.ROOT))
+                .toList();
+        if (!generated.isEmpty()) {
+            throw new AssertionError("the generated task class does not compile cleanly: " + generated);
         }
     }
 
@@ -137,6 +154,23 @@ final class TestCompiler {
                 }
             }
             throw new AssertionError("no task " + method + " in " + binaryName);
+        }
+
+        Object call(String entrypoint, Map<String, Object> kwargs) {
+            String className = entrypoint.substring(0, entrypoint.indexOf('#'));
+            String methodName = entrypoint.substring(entrypoint.indexOf('#') + 1);
+            try (URLClassLoader loader = new URLClassLoader(new URL[] {output.toUri().toURL()},
+                    TestCompiler.class.getClassLoader())) {
+                Method entry = Class.forName(className, true, loader).getMethod(methodName, Map.class);
+                return entry.invoke(null, kwargs);
+            } catch (InvocationTargetException failed) {
+                if (failed.getCause() instanceof RuntimeException refused) {
+                    throw refused;
+                }
+                throw new AssertionError(failed.getCause());
+            } catch (IOException | ReflectiveOperationException unloadable) {
+                throw new AssertionError("could not call " + entrypoint, unloadable);
+            }
         }
     }
 }
