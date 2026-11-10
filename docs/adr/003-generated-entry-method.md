@@ -93,3 +93,7 @@ On the two gaps:
 - Core stays as it is for a task node with no interface: an absent interface means the task declares nothing, and core does not guess ports for it (answered in the review of #17). The SDK fills in the `input` and `result` ports, from the one `brokoli-pipeline` helper that both the node and `interface_digest` use.
 - The interface helper and `interface_digest` in the bundle plugin (#3, week 5).
 - #18: locate a non-finite result, qualify `java.lang` names in the generated class, and report a clash between a nested class and a top-level one with the flattened name.
+
+## Update (2026-11-10)
+
+Core closed the first gap in Tnsor-Labs/brokoli#981 (#978). In a pipeline that declares parameters, a task node now gets only the resolved typed values as kwargs, with defaults applied, and with `decimal`, `timestamp`, `duration`, `bytes` and an `int64` beyond 2^53 - 1 tagged. That is the form the generated entry method reads, so the first item under Negative no longer holds. In a pipeline that declares no parameters, a task still gets the run's string parameters, so a JVM task with parameters needs its pipeline to declare them, which the pipeline builder does.

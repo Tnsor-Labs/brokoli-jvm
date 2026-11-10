@@ -1,0 +1,33 @@
+name: Core drift
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: Vendored core contract matches core's main
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout core's main
+        uses: actions/checkout@v4
+        with:
+          repository: Tnsor-Labs/brokoli
+          path: core
+
+      - name: Set up core's Go toolchain
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+
+      - name: Compare the vendored contract and reference bundles with core's main
+        run: core-contract/check.sh core

@@ -1,0 +1,8 @@
+--classes
+input/classes
+--jar
+input/lib/sample-lib.jar
+--entrypoint
+com.example.tasks.Readings_BrokoliTasks#rollup
+--name
+rollup-with-lib

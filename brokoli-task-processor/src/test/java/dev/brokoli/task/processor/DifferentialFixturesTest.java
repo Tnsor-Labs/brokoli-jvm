@@ -16,6 +16,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class DifferentialFixturesTest {
 
+    private static final String VECTORS = "/schema/fixtures/task-interface/differential/";
+
     private static final String NULLABLE = """
             package fixtures;
 
@@ -178,7 +180,7 @@ class DifferentialFixturesTest {
     }
 
     private static JsonNode fixture(String vector) {
-        try (InputStream in = DifferentialFixturesTest.class.getResourceAsStream("/differential/" + vector + ".json")) {
+        try (InputStream in = DifferentialFixturesTest.class.getResourceAsStream(VECTORS + vector + ".json")) {
             return TestCompiler.JSON.readTree(new String(in.readAllBytes(), StandardCharsets.UTF_8));
         } catch (IOException unreadable) {
             throw new UncheckedIOException(unreadable);

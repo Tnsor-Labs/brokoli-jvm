@@ -44,18 +44,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Checkout core's schemas
+      - name: Read the pinned core commit
+        id: core
+        run: echo "ref=$(cat core-contract/CORE_REF)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout core at the pinned commit
         uses: actions/checkout@v4
         with:
           repository: Tnsor-Labs/brokoli
+          ref: ${{ steps.core.outputs.ref }}
           path: core
-          sparse-checkout: docs/schema
 
-      - name: Compare the vendored schema and fixtures with core
-        run: |
-          vendored=brokoli-task-processor/src/test/resources
-          diff "$vendored/schema/task-interface-v1.json" core/docs/schema/task-interface-v1.json
-          diff <(cd "$vendored/differential" && ls *.json) <(cd core/docs/schema/fixtures/task-interface/differential && ls *.json)
-          for fixture in "$vendored"/differential/*.json; do
-            diff "$fixture" "core/docs/schema/fixtures/task-interface/differential/$(basename "$fixture")"
-          done
+      - name: Set up core's Go toolchain
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+
+      - name: Compare the vendored contract and reference bundles with core
+        run: core-contract/check.sh core
