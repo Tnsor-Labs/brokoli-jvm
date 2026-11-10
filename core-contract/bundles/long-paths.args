@@ -1,0 +1,8 @@
+--classes
+input/deep-classes
+--classes
+input/long-name-classes
+--entrypoint
+com.example.logistics.warehouse.inbound.scheduling.dockassignment.priorityqueues.Deliveries_BrokoliTasks#schedule
+--name
+Schedule
