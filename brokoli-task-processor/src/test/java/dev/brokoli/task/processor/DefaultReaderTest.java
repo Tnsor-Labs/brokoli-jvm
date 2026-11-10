@@ -46,7 +46,7 @@ class DefaultReaderTest {
                 {
                     "count": 42,
                     "ratio": 0.5,
-                    "zero": 0.0,
+                    "zero": 0,
                     "flag": true,
                     "region": "eu-west",
                     "tier": "silver",
@@ -75,6 +75,29 @@ class DefaultReaderTest {
         assertRefused("Instant at", "tomorrow", "a UTC timestamp such as 2026-01-31T12:00:00Z");
         assertRefused("Duration window", "90s", "an ISO-8601 duration such as PT1H30M");
         assertRefused("byte[] payload", "SGVsbG8", "padded standard base64");
+    }
+
+    @Test
+    void writesAFloat64DefaultAsTheSameTextOnEveryJdk() {
+        Compilation compilation = compileTasks(output, """
+                @Task
+                public static Rows run(Rows input,
+                        @Default("1e23") double large,
+                        @Default("4.9E-324") double subnormal,
+                        @Default("1.7976931348623157E308") double largest,
+                        @Default("0.000001") double small,
+                        @Default("1e-7") double tiny) {
+                    return input;
+                }
+                """);
+
+        assertThat(compilation.errors()).isEmpty();
+        assertThat(compilation.taskFileText(TASKS))
+                .contains("\"large\":{\"type\":{\"kind\":\"float64\"},\"required\":false,\"default\":1e+23}")
+                .contains("\"default\":5e-324}")
+                .contains("\"default\":1.7976931348623157e+308}")
+                .contains("\"default\":0.000001}")
+                .contains("\"default\":1e-7}");
     }
 
     @Test

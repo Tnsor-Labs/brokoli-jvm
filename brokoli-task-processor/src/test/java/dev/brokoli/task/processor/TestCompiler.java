@@ -148,8 +148,12 @@ final class TestCompiler {
         }
 
         JsonNode taskFile(String binaryName) {
+            return JSON.readTree(taskFileText(binaryName));
+        }
+
+        String taskFileText(String binaryName) {
             try {
-                return JSON.readTree(Files.readString(taskFilePath(binaryName)));
+                return Files.readString(taskFilePath(binaryName));
             } catch (IOException unreadable) {
                 throw new UncheckedIOException(unreadable);
             }
