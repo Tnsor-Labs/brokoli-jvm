@@ -7,7 +7,41 @@ It is not usable yet. The design is core's [ADR-036](https://github.com/Tnsor-La
 ## Modules
 
 - `brokoli-task` is the task API: the `@Task` annotation and the row types. It has no dependencies, because it sits on the classpath of every task and anything it pulled in would clash with the task's own dependencies.
+- `brokoli-task-processor` is the annotation processor. At compile time it checks every `@Task` method and writes its task interface and parameters to `META-INF/brokoli/tasks/<class>.json`. It runs only in the compiler, so it never reaches a task's classpath.
 - `brokoli-pipeline` is the authoring side: the pipeline builder, IR emission and task bundle packaging.
+
+## Writing a task
+
+```java
+public final class Scores {
+
+    public record Reading(String sensor, double score) {
+    }
+
+    @Task(name = "Daily Rollup")
+    public static List<Reading> dailyRollup(List<Reading> input, @Default("0.5") double threshold) {
+        return input.stream().filter(reading -> reading.score() >= threshold).toList();
+    }
+}
+```
+
+Take and return `Rows` to leave the row schema undeclared, or a `List` of a record to declare it. Every other parameter becomes a pipeline parameter, required unless it has `@Default`, and an annotation named `Nullable` (JSpecify's, for example) makes a value nullable. Since JDK 23, javac runs no annotation processor it finds on the classpath, so name the processor in the build:
+
+```xml
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-compiler-plugin</artifactId>
+    <configuration>
+        <annotationProcessorPaths>
+            <path>
+                <groupId>dev.brokoli</groupId>
+                <artifactId>brokoli-task-processor</artifactId>
+                <version>${brokoli.version}</version>
+            </path>
+        </annotationProcessorPaths>
+    </configuration>
+</plugin>
+```
 
 ## How it fits with the rest of Brokoli
 

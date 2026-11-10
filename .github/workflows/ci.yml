@@ -35,3 +35,27 @@ jobs:
 
       - name: Verify with Maven
         run: ./mvnw -B verify
+
+  core-contract:
+    name: Vendored core contract matches core
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout core's schemas
+        uses: actions/checkout@v4
+        with:
+          repository: Tnsor-Labs/brokoli
+          path: core
+          sparse-checkout: docs/schema
+
+      - name: Compare the vendored schema and fixtures with core
+        run: |
+          vendored=brokoli-task-processor/src/test/resources
+          diff "$vendored/schema/task-interface-v1.json" core/docs/schema/task-interface-v1.json
+          diff <(cd "$vendored/differential" && ls *.json) <(cd core/docs/schema/fixtures/task-interface/differential && ls *.json)
+          for fixture in "$vendored"/differential/*.json; do
+            diff "$fixture" "core/docs/schema/fixtures/task-interface/differential/$(basename "$fixture")"
+          done

@@ -11,6 +11,18 @@ Every entry names its owner.
 
 ### Added
 
+- **Task processor** -- @DarzVadckawy. `brokoli-task-processor` checks
+  every `@Task` method at compile time and writes its task interface and
+  pipeline parameters to `META-INF/brokoli/tasks/<class>.json`. It maps
+  the same types as the Python SDK's inference, writes the range of an
+  `int` or `float` so core refuses a value the task cannot hold, reads
+  `@Default` values into the form core validates, and treats any annotation
+  named `Nullable` as nullable. It refuses with a compile error a method or
+  type it cannot describe, a record or enum the task's package cannot
+  reach, and text that is not valid Unicode. A task whose types another
+  processor generates is read again in the next round. Its output matches
+  core's cross-SDK differential vectors, and every task file the tests
+  write validates against core's `task-interface-v1.json`.
 - **Task API** -- @DarzVadckawy. `brokoli-task` has `@Task` to mark a
   task method, `@Default` to make a task parameter optional, and `Row` and
   `Rows` for rows whose schema a task does not declare. A row holds only
