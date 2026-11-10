@@ -1,3 +1,4 @@
+docs/schema/fixtures/ir-canonicalization/rendering.json
 docs/schema/fixtures/task-bundle-v2/negative/bad-digest-format.json
 docs/schema/fixtures/task-bundle-v2/negative/container-payload-missing-image.json
 docs/schema/fixtures/task-bundle-v2/negative/extra-top-level-field.json
