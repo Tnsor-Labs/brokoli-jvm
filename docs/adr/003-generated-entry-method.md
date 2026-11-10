@@ -36,7 +36,7 @@ Values are read and written in core's form:
 
 | Java | Read from | Written as |
 |---|---|---|
-| `long`, `Long` | a whole number, or a tagged `int64` | `Long` |
+| `long`, `Long` | a whole number, or a tagged `int64`; a whole number decoded as a `Double` only up to 2^53 - 1 | `Long` |
 | `int`, `Integer` | the same, inside the `int` range | `Long` |
 | `double`, `Double` | a number; a `Long` only if a `double` holds it exactly | `Double` |
 | `float`, `Float` | the same, inside the `float` range | `Float` |
@@ -56,7 +56,7 @@ A value of the wrong form throws `TaskValueException`, whose message names where
 On the two gaps:
 
 1. **The task file keeps the inferred interface,** so it still matches core's vectors. One helper in `brokoli-pipeline` turns a null interface into an `input` and a `result` port of `{"kind": "dataset", "row": {"kind": "unknown"}}`. The bundle plugin (week 5) and the pipeline builder (weeks 6 and 7) both use it, so the node's interface and the bundle's `interface_digest` are computed from the same document.
-2. **The entry method reads the typed form only:** the values `ResolveParameters` produces, the same `parameters` a Python `code` node gets. Core should pass `r.parameters` to a task-bundle node; that is raised with core.
+2. **The entry method reads the typed form only:** the values `ResolveParameters` produces, the same `parameters` a Python `code` node gets. Core should pass `r.parameters` to a task-bundle node, tracked in Tnsor-Labs/brokoli#978.
 
 `Row.getDecimal` reads a tagged decimal exactly, a `Long` or `Integer` exactly, and a `Double` or `Float` through its decimal text (`BigDecimal.valueOf`). It refuses anything else, naming the column.
 
@@ -89,6 +89,7 @@ On the two gaps:
 
 ## Follow-ups
 
-- Core: pass `r.parameters` to task-bundle nodes as kwargs.
-- Core: whether a task node with no interface but an incoming edge should consume it.
+- Core passes `r.parameters`, with declared defaults, to task-bundle nodes as kwargs: Tnsor-Labs/brokoli#978. It affects Python and Node task bundles as well.
+- Core stays as it is for a task node with no interface: an absent interface means the task declares nothing, and core does not guess ports for it (answered in the review of #17). The SDK fills in the `input` and `result` ports, from the one `brokoli-pipeline` helper that both the node and `interface_digest` use.
 - The interface helper and `interface_digest` in the bundle plugin (#3, week 5).
+- #18: locate a non-finite result, qualify `java.lang` names in the generated class, and report a clash between a nested class and a top-level one with the flattened name.

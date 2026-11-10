@@ -24,6 +24,8 @@ class TaskValuesTest {
     void readsEachScalarInTheFormCoreSends() {
         assertThat(TaskValues.readLong(42L)).isEqualTo(42L);
         assertThat(TaskValues.readLong(2.0)).isEqualTo(2L);
+        assertThat(TaskValues.readLong(9007199254740991.0)).isEqualTo(9_007_199_254_740_991L);
+        assertThat(TaskValues.readLong(-9007199254740991.0)).isEqualTo(-9_007_199_254_740_991L);
         assertThat(TaskValues.readLong(tagged("int64", "9223372036854775807"))).isEqualTo(Long.MAX_VALUE);
         assertThat(TaskValues.readInt(-2147483648L)).isEqualTo(Integer.MIN_VALUE);
         assertThat(TaskValues.readDouble(0.5)).isEqualTo(0.5);
@@ -43,6 +45,10 @@ class TaskValuesTest {
     @Test
     void refusesEachScalarInAnotherForm() {
         assertRefused(() -> TaskValues.readLong(0.5), "a whole number", "of type Double");
+        assertRefused(() -> TaskValues.readLong(9007199254740993.0), "a whole number",
+                "9.007199254740992E15, a whole number that a double cannot hold exactly");
+        assertRefused(() -> TaskValues.readLong(-9007199254740992.0), "a whole number",
+                "-9.007199254740992E15, a whole number that a double cannot hold exactly");
         assertRefused(() -> TaskValues.readLong(tagged("int64", "9223372036854775808")), "a whole number",
                 "the tagged int64 9223372036854775808, beyond 64 bits");
         assertRefused(() -> TaskValues.readInt(3_000_000_000L), "a whole number from -2147483648 to 2147483647",

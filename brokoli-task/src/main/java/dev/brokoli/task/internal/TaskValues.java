@@ -52,6 +52,7 @@ public final class TaskValues {
     private static final String NUMBER = "a number";
     private static final String FLOAT_RANGE = "a number from -3.4028234663852886E38 to 3.4028234663852886E38";
     private static final String INEXACT_LONG = "a Long that a double cannot hold exactly";
+    private static final String INEXACT_DOUBLE = "a whole number that a double cannot hold exactly";
     private static final String BOOLEAN = "a boolean";
     private static final String STRING = "a string";
     private static final String DECIMAL_VALUE =
@@ -73,6 +74,7 @@ public final class TaskValues {
     private static final Pattern STARTS_WITH_FOUR_DIGIT_YEAR = Pattern.compile("[0-9]{4}-.*");
     private static final String UTC = "Z";
     private static final double FIRST_DOUBLE_BEYOND_LONG = 0x1p63;
+    private static final double MAX_SAFE_INTEGER = 0x1p53 - 1;
     private static final long MAX_NANOS = 999_999_999L;
     private static final long NANOS_PER_SECOND = 1_000_000_000L;
 
@@ -250,11 +252,16 @@ public final class TaskValues {
 
     /**
      * Reads an {@code int64}: a whole number, or a tagged one such as
-     * {@code {"$bptd": "int64", "value": "9223372036854775807"}}.
+     * {@code {"$bptd": "int64", "value": "9223372036854775807"}}. A whole number written with a
+     * fraction or an exponent, such as {@code 2.0}, has been decoded as a {@code Double}. It is
+     * accepted only up to 2<sup>53</sup> - 1, because beyond that a {@code Double} may be another
+     * whole number than the one written: {@code 9007199254740993.0} decodes to
+     * {@code 9007199254740992}.
      *
      * @param value the decoded value
      * @return the number
-     * @throws TaskValueException if the value is null, not a whole number, or beyond 64 bits
+     * @throws TaskValueException if the value is null, not a whole number, a {@code Double} beyond
+     *         2<sup>53</sup> - 1, or beyond 64 bits
      */
     public static Long readLong(Object value) {
         if (value instanceof Long whole) {
@@ -263,8 +270,11 @@ public final class TaskValues {
         if (value instanceof Integer small) {
             return small.longValue();
         }
-        if (value instanceof Double number && isWhole(number)) {
-            return number.longValue();
+        if (value instanceof Double number && Double.isFinite(number) && number == Math.rint(number)) {
+            if (Math.abs(number) <= MAX_SAFE_INTEGER) {
+                return number.longValue();
+            }
+            throw new TaskValueException("", WHOLE_NUMBER, number + ", " + INEXACT_DOUBLE);
         }
         String text = tagged(value, INT64, VALUE);
         if (text != null && CANONICAL_INT64.matcher(text).matches()) {
@@ -681,10 +691,6 @@ public final class TaskValues {
      */
     public static Object writeEnum(Enum<?> value) {
         return value == null ? null : value.name();
-    }
-
-    private static boolean isWhole(double number) {
-        return Math.abs(number) < FIRST_DOUBLE_BEYOND_LONG && number == Math.rint(number);
     }
 
     private static String tagged(Object value, String kind, String part) {
