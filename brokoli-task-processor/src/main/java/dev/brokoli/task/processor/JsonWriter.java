@@ -1,5 +1,7 @@
 package dev.brokoli.task.processor;
 
+import dev.brokoli.task.internal.JsonNumbers;
+
 import java.util.List;
 import java.util.Map;
 
@@ -24,7 +26,7 @@ final class JsonWriter {
         } else if (value instanceof Boolean || value instanceof Long || value instanceof Integer) {
             json.append(value);
         } else if (value instanceof Double number) {
-            appendDouble(json, number);
+            json.append(JsonNumbers.format(number));
         } else if (value instanceof Map<?, ?> map) {
             appendObject(json, map);
         } else if (value instanceof List<?> list) {
@@ -32,13 +34,6 @@ final class JsonWriter {
         } else {
             throw new IllegalArgumentException("no JSON form for " + value.getClass().getName());
         }
-    }
-
-    private static void appendDouble(StringBuilder json, double number) {
-        if (!Double.isFinite(number)) {
-            throw new IllegalArgumentException("JSON has no form for " + number);
-        }
-        json.append(number);
     }
 
     private static void appendObject(StringBuilder json, Map<?, ?> map) {

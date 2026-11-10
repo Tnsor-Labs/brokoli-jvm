@@ -11,6 +11,11 @@ Every entry names its owner.
 
 ### Added
 
+- **Same task file on every JDK** -- @DarzVadckawy. A `float64` in the task
+  file is written as the shortest text that reads back as the same number,
+  in the form RFC 8785, Go and JavaScript use (`1e+23`, `5e-324`), so a
+  JDK 17 build and a JDK 21 build of the same task give the same file.
+  Before, JDK 17 wrote `1e23` as `9.999999999999999E22`.
 - **Strict lint builds** -- @DarzVadckawy. The README shows the compiler
   arguments for a build with `-Xlint:all -Werror`: `-Xlint:-processing`,
   because the processor leaves `@Task` and `@Default` unclaimed so other
