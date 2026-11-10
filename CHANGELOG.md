@@ -19,7 +19,9 @@ Every entry names its owner.
   a copy was edited by hand. A weekly job compares them with core's
   `main`, so it fails when core has moved on. The reference bundles cover
   long paths and non-ASCII names, which Go's tar writes with the USTAR
-  prefix field and PAX headers.
+  prefix field and PAX headers. The copies include core's canonical
+  rendering vectors, the cross-SDK cases for how a document is written
+  before it is hashed.
 - **Same task file on every JDK** -- @DarzVadckawy. A `float64` in the task
   file is written as the shortest text that reads back as the same number,
   in the form RFC 8785, Go and JavaScript use (`1e+23`, `5e-324`), so a
