@@ -72,6 +72,11 @@ final class TypeMapper {
         return false;
     }
 
+    static boolean isNullable(TypeElement record, RecordComponentElement component) {
+        return isNullable(component, component.getAccessor(), fieldOf(record, component.getSimpleName().toString()),
+                component.asType());
+    }
+
     static boolean isRows(TypeMirror type) {
         return isDeclared(type, ROWS);
     }
@@ -214,8 +219,7 @@ final class TypeMapper {
                 throw new InvalidTaskException(fieldContext + " has a name that is not a Brokoli identifier ("
                         + Bptd.IDENTIFIER + ")", at);
             }
-            boolean nullable = isNullable(component, component.getAccessor(), fieldOf(record, fieldName),
-                    component.asType());
+            boolean nullable = isNullable(record, component);
             Map<String, Object> field = new LinkedHashMap<>();
             field.put(Bptd.NAME, fieldName);
             field.put(Bptd.TYPE, map(component.asType(), nullable, fieldContext, at, nested));
@@ -303,7 +307,7 @@ final class TypeMapper {
         return element.isUnnamed() ? "the unnamed package" : "package " + element.getQualifiedName();
     }
 
-    private static PackageElement packageOf(Element element) {
+    static PackageElement packageOf(Element element) {
         Element enclosing = element;
         while (!(enclosing instanceof PackageElement)) {
             enclosing = enclosing.getEnclosingElement();

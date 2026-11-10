@@ -41,10 +41,6 @@ final class Bptd {
     static final String RECORD = "record";
     static final String UNKNOWN = "unknown";
 
-    static final String TAG = "$bptd";
-    static final String SECONDS = "seconds";
-    static final String NANOS = "nanos";
-
     static final String IDENTIFIER = "[A-Za-z_][A-Za-z0-9_]{0,127}";
 
     private Bptd() {

@@ -32,6 +32,32 @@ class RowTest {
     }
 
     @Test
+    void getDecimalReadsATaggedDecimalExactlyAndAPlainNumberThroughItsDouble() {
+        Map<String, Object> tagged = new LinkedHashMap<>();
+        tagged.put("$bptd", "decimal");
+        tagged.put("value", "12.50");
+        Row row = Row.of(Map.of("price", tagged, "count", 9_007_199_254_740_993L, "rate", 0.1));
+
+        assertThat(row.getDecimal("price")).isEqualTo(new BigDecimal("12.50"));
+        assertThat(row.getDecimal("count")).isEqualTo(new BigDecimal("9007199254740993"));
+        assertThat(row.getDecimal("rate")).isEqualTo(new BigDecimal("0.1"));
+    }
+
+    @Test
+    void getDecimalRefusesTextAndAMapThatIsNotATaggedDecimal() {
+        Row row = Row.of(Map.of("price", "12.50", "attrs", Map.of("size", 3L)));
+
+        assertThatThrownBy(() -> row.getDecimal("price"))
+                .isInstanceOf(RowValueException.class)
+                .hasMessage("column 'price' is of type String, expected a decimal: a number or a tagged decimal");
+        assertThatThrownBy(() -> row.getDecimal("attrs"))
+                .hasMessage("column 'attrs' is a map that is not a tagged decimal, expected a decimal: a number or "
+                        + "a tagged decimal");
+        assertThatThrownBy(() -> row.getDecimal("missing"))
+                .hasMessage("column 'missing' is missing, expected a decimal: a number or a tagged decimal");
+    }
+
+    @Test
     void getLongReadsAWholeNumberAndRefusesOneWithAFraction() {
         Row row = Row.of(Map.of("count", 3L, "ratio", 2.5));
 

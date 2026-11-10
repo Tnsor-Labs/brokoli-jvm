@@ -11,6 +11,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
+import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -28,6 +29,10 @@ import java.util.TreeSet;
 /**
  * Reads every {@link Task} method at compile time and writes its task interface and pipeline parameters to
  * {@code META-INF/brokoli/tasks/<class>.json} in the class output, one file per class that declares tasks.
+ * For the same class it generates {@code <Class>_BrokoliTasks} in the same package, with one
+ * {@code public static Object <method>(Map<String, Object>)} per task: the entry method core's harness calls,
+ * which reads the task's input rows and parameters into the method's types and writes back what it returns. Each
+ * task's {@code entrypoint} in the task file names it.
  *
  * <p>A method that cannot be a task is refused with a compile error on that method or parameter: one that is not
  * {@code public static}, sits in a class the harness cannot reach, takes or returns something other than
@@ -49,6 +54,7 @@ public final class TaskProcessor extends AbstractProcessor {
     private static final String CLASS = "class";
     private static final String TASKS = "tasks";
     private static final String METHOD = "method";
+    private static final String ENTRYPOINT = "entrypoint";
     private static final String NAME = "name";
     private static final String INTERFACE = "interface";
     private static final String PARAMETERS = "parameters";
@@ -115,8 +121,9 @@ public final class TaskProcessor extends AbstractProcessor {
         List<TaskDeclaration> tasks = new ArrayList<>();
         List<InvalidTaskException> refusals = new ArrayList<>();
         Set<String> methods = new HashSet<>();
+        List<ExecutableElement> taskMethods = taskMethods(owner);
         try {
-            for (ExecutableElement method : taskMethods(owner)) {
+            for (ExecutableElement method : taskMethods) {
                 try {
                     checkUnique(method, owner, methods);
                     tasks.add(reader.read(method));
@@ -130,6 +137,7 @@ public final class TaskProcessor extends AbstractProcessor {
         }
         if (refusals.isEmpty()) {
             write(owner, tasks);
+            writeTaskClass(owner, taskMethods);
         }
         for (InvalidTaskException refused : refusals) {
             processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, refused.getMessage(),
@@ -162,7 +170,7 @@ public final class TaskProcessor extends AbstractProcessor {
         try {
             FileObject file = processingEnv.getFiler().createResource(StandardLocation.CLASS_OUTPUT, "", path, owner);
             try (Writer out = new OutputStreamWriter(file.openOutputStream(), StandardCharsets.UTF_8.newEncoder())) {
-                out.write(JsonWriter.write(document(binaryName, tasks)));
+                out.write(JsonWriter.write(document(owner, binaryName, tasks)));
                 out.write('\n');
             }
         } catch (IOException unwritable) {
@@ -171,11 +179,25 @@ public final class TaskProcessor extends AbstractProcessor {
         }
     }
 
-    private static Map<String, Object> document(String binaryName, List<TaskDeclaration> tasks) {
+    private void writeTaskClass(TypeElement owner, List<ExecutableElement> tasks) {
+        String name = TaskClassWriter.qualifiedName(owner);
+        try {
+            JavaFileObject file = processingEnv.getFiler().createSourceFile(name, owner);
+            try (Writer out = file.openWriter()) {
+                out.write(TaskClassWriter.source(owner, tasks));
+            }
+        } catch (IOException unwritable) {
+            processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+                    "could not write " + name + ": " + unwritable.getMessage(), owner);
+        }
+    }
+
+    private static Map<String, Object> document(TypeElement owner, String binaryName, List<TaskDeclaration> tasks) {
         List<Map<String, Object>> entries = new ArrayList<>();
         for (TaskDeclaration task : tasks) {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put(METHOD, task.method());
+            entry.put(ENTRYPOINT, TaskClassWriter.entrypoint(owner, task.method()));
             entry.put(NAME, task.name());
             entry.put(INTERFACE, task.nodeInterface());
             entry.put(PARAMETERS, task.parameters());

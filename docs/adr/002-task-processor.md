@@ -109,3 +109,7 @@ The interface digest is computed by the bundle plugin, from the interface in thi
 
 - Generated entry method and `getDecimal` (#3, the second processor PR).
 - Bundle plugin computing `interface_digest` from the task file (#3, week 5).
+
+## Update (2026-11-10)
+
+The task file now has an `entrypoint` for each task, `<package>.<Class>_BrokoliTasks#<method>`, naming the entry method the processor generates next to it. A class with an invalid task gets neither the file nor the generated class. A null interface stays null in the task file: [JVM-ADR-003](./003-generated-entry-method.md) records why a `task` node still needs `input` and `result` ports, and where they are filled in.
