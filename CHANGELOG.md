@@ -11,6 +11,13 @@ Every entry names its owner.
 
 ### Added
 
+- **Pinned core contract** -- @DarzVadckawy. `core-contract/` holds the
+  copies of core's schemas and fixtures the tests use, now including
+  `task-bundle-v2.json`, and reference bundles made by core's own
+  `brokoli bundle jvm`, all pinned to the core commit in `CORE_REF`. The
+  PR check compares them with core at that commit, so it fails only when
+  a copy was edited by hand. A weekly job compares them with core's
+  `main`, so it fails when core has moved on.
 - **Same task file on every JDK** -- @DarzVadckawy. A `float64` in the task
   file is written as the shortest text that reads back as the same number,
   in the form RFC 8785, Go and JavaScript use (`1e+23`, `5e-324`), so a
