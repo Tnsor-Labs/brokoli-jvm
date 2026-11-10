@@ -14,8 +14,12 @@ Say why the change is needed and what fails without it, then how you checked it:
 
 Commit messages explain why in prose, not as a list of changes. No AI co-authorship on commits, issues or PRs.
 
+## Decisions
+
+Decisions that only concern this SDK are recorded in [`docs/adr/`](docs/adr/README.md) as `JVM-ADR-NNN`. Ones that change something shared with core go in core's ADRs. Read the ADR for an area before changing it, and update it in the same PR when the change affects what it describes.
+
 ## What done means
 
 - `./mvnw verify` passes on JDK 17, 21 and 25. CI runs all three.
-- Public API has Javadoc. Code outside it has no comments: rename or restructure instead, and put the reasoning in the PR.
+- Public API has Javadoc, and the build fails on a public type or member without it. Javadoc says what the API does and what it refuses, not how it works. Code outside the public API has no comments: rename or restructure instead, and put the reasoning in the PR.
 - `brokoli-task` has no dependencies outside test scope. The build fails if one is added.
