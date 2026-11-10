@@ -10,7 +10,7 @@ constraints forced the choice?
 
 ## Decision
 
-What did we pick? State it in one or two sentences — details go in
+What did we pick? State it in one or two sentences; details go in
 Consequences.
 
 ## Consequences
@@ -29,8 +29,8 @@ Consequences.
 
 ## Alternatives considered
 
-- **Alt A** — one-liner why we didn't pick it.
-- **Alt B** — ditto.
+- **Alt A**: one-liner why we didn't pick it.
+- **Alt B**: ditto.
 
 ## Follow-ups
 

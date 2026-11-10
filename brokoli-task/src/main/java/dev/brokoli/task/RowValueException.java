@@ -1,7 +1,7 @@
-package dev.brokoli.task.exception;
+package dev.brokoli.task;
 
 /**
- * Thrown when a column of a {@link dev.brokoli.task.Row} is read as a type its value does not
+ * Thrown when a column of a {@link Row} is read as a type its value does not
  * have, including when the column is missing or its value is null.
  *
  * @serial exclude

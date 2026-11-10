@@ -15,7 +15,7 @@ import java.lang.annotation.Target;
  * task parameter without this annotation is required.
  */
 @Documented
-@Retention(RetentionPolicy.RUNTIME)
+@Retention(RetentionPolicy.CLASS)
 @Target(ElementType.PARAMETER)
 public @interface Default {
 

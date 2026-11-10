@@ -1,7 +1,5 @@
 package dev.brokoli.task;
 
-import dev.brokoli.task.exception.RowValueException;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,10 +9,16 @@ import java.util.Objects;
 /**
  * One row of a dataset, as a map from column name to value, in column order.
  *
- * <p>A row cannot be changed: {@link #with(String, Object)} returns a changed copy. Values are what
- * the row's JSON holds: {@code String}, {@code Boolean}, {@code Long} for a number without a
- * fraction, {@code Double} for one with a fraction, {@code List}, {@code Map}, or {@code null}.
- * Lists and maps nested inside a value are not copied.
+ * <p>A row holds only JSON values, because that is what the harness writes out: {@code null}, a
+ * {@code String}, a {@code Boolean}, a {@code Long} or {@code Integer}, a finite {@code Double} or
+ * {@code Float}, an {@code Iterable} of JSON values such as a {@code List}, or a {@code Map} from
+ * {@code String} to JSON values. {@link #of(Map)} and {@link #with(String, Object)} refuse any
+ * other value with a {@link RowValueException} that names the column, and the path inside it for a
+ * nested value, such as {@code attrs.size} or {@code tags[2]}. A number read from JSON is a
+ * {@code Long} when it has no fraction and a {@code Double} when it has one.
+ *
+ * <p>A row cannot be changed: {@link #with(String, Object)} returns a changed copy. Lists and maps
+ * nested inside a value are checked but not copied.
  *
  * <p>The typed getters throw {@link RowValueException}, naming the column, when it is missing,
  * when its value is null, or when the value has another type. {@link #isNull(String)} tells a
@@ -28,6 +32,12 @@ public final class Row {
     private static final String NUMBER = "a number";
     private static final String WHOLE_NUMBER = "a whole number";
     private static final String BOOLEAN = "a boolean";
+    private static final String JSON_VALUE =
+            "a JSON value (null, String, Boolean, Long, Integer, finite Double or Float, Iterable or Map)";
+    private static final String NOT_FINITE = "a number that is not finite";
+    private static final String NULL_KEY = "a map with a null key";
+    private static final String INEXACT_LONG = "a Long that a double cannot hold exactly";
+    private static final double FIRST_DOUBLE_BEYOND_LONG = 0x1p63;
 
     private final Map<String, Object> values;
 
@@ -41,11 +51,12 @@ public final class Row {
      * @param values the columns, by name; values may be null
      * @return the row
      * @throws NullPointerException if {@code values} or one of its column names is null
+     * @throws RowValueException if a value, or a value nested inside one, is not a JSON value
      */
     public static Row of(Map<String, ?> values) {
         Objects.requireNonNull(values, "values");
         Map<String, Object> copy = new LinkedHashMap<>();
-        values.forEach((column, value) -> copy.put(Objects.requireNonNull(column, "column"), value));
+        values.forEach((column, value) -> copy.put(Objects.requireNonNull(column, "column"), checked(column, value)));
         return new Row(Collections.unmodifiableMap(copy));
     }
 
@@ -108,27 +119,33 @@ public final class Row {
      *
      * @param column the column name
      * @return the value
-     * @throws RowValueException if the column is missing, null, or not a whole number; a number
-     *         with a fraction is refused rather than truncated
+     * @throws RowValueException if the column is missing, null, or not a {@code Long} or
+     *         {@code Integer}; a number with a fraction is refused rather than truncated
      */
     public long getLong(String column) {
         Object value = present(column, WHOLE_NUMBER);
-        if (value instanceof Long || value instanceof Integer || value instanceof Short || value instanceof Byte) {
+        if (value instanceof Long || value instanceof Integer) {
             return ((Number) value).longValue();
         }
         throw wrongType(column, WHOLE_NUMBER, value);
     }
 
     /**
-     * The column's value as a {@code double}. Any number is accepted, because a value such as
-     * {@code 5} in a column of fractional numbers arrives as a {@code Long}.
+     * The column's value as a {@code double}. A whole number is accepted, because a value such as
+     * {@code 5} in a column of fractional numbers arrives as a {@code Long}; a {@code Long} that a
+     * {@code double} cannot hold exactly, such as a 64-bit id above 2<sup>53</sup>, is refused
+     * rather than rounded.
      *
      * @param column the column name
      * @return the value
-     * @throws RowValueException if the column is missing, null, or not a number
+     * @throws RowValueException if the column is missing, null, not a number, or a {@code Long}
+     *         that a {@code double} cannot hold exactly
      */
     public double getDouble(String column) {
         Object value = present(column, NUMBER);
+        if (value instanceof Long whole) {
+            return exactly(column, whole);
+        }
         if (value instanceof Number number) {
             return number.doubleValue();
         }
@@ -158,10 +175,11 @@ public final class Row {
      * @param value the value, which may be null
      * @return the changed copy; this row is unchanged
      * @throws NullPointerException if {@code column} is null
+     * @throws RowValueException if the value, or a value nested inside it, is not a JSON value
      */
     public Row with(String column, Object value) {
         Map<String, Object> copy = new LinkedHashMap<>(values);
-        copy.put(Objects.requireNonNull(column, "column"), value);
+        copy.put(Objects.requireNonNull(column, "column"), checked(column, value));
         return new Row(Collections.unmodifiableMap(copy));
     }
 
@@ -196,9 +214,10 @@ public final class Row {
     }
 
     /**
-     * The row's columns and values, for logs and test failures.
+     * The row's columns and values, for debugging and test failures. It includes every value, so
+     * a row logged this way copies its data into the log.
      *
-     * @return the text form of the row
+     * @return the text form of the row, with its values
      */
     @Override
     public String toString() {
@@ -213,7 +232,80 @@ public final class Row {
         throw new RowValueException(column, expected, values.containsKey(column) ? NULL : MISSING);
     }
 
+    private static double exactly(String column, long whole) {
+        double number = whole;
+        if (number < FIRST_DOUBLE_BEYOND_LONG && (long) number == whole) {
+            return number;
+        }
+        throw new RowValueException(column, NUMBER, INEXACT_LONG);
+    }
+
+    private static Object checked(String column, Object value) {
+        Refusal refusal = refusal(value);
+        if (refusal != null) {
+            throw new RowValueException(column + refusal.path(), JSON_VALUE, refusal.found());
+        }
+        return value;
+    }
+
+    private static Refusal refusal(Object value) {
+        if (value == null || value instanceof String || value instanceof Boolean
+                || value instanceof Long || value instanceof Integer) {
+            return null;
+        }
+        if (value instanceof Double || value instanceof Float) {
+            return Double.isFinite(((Number) value).doubleValue()) ? null : new Refusal("", NOT_FINITE);
+        }
+        if (value instanceof Map<?, ?> map) {
+            return refusalInMap(map);
+        }
+        if (value instanceof Iterable<?> items) {
+            return refusalInItems(items);
+        }
+        return new Refusal("", typeOf(value));
+    }
+
+    private static Refusal refusalInMap(Map<?, ?> map) {
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            Object key = entry.getKey();
+            if (key == null) {
+                return new Refusal("", NULL_KEY);
+            }
+            if (!(key instanceof String name)) {
+                return new Refusal("", "a map with a key " + typeOf(key));
+            }
+            Refusal nested = refusal(entry.getValue());
+            if (nested != null) {
+                return nested.under("." + name);
+            }
+        }
+        return null;
+    }
+
+    private static Refusal refusalInItems(Iterable<?> items) {
+        int index = 0;
+        for (Object item : items) {
+            Refusal nested = refusal(item);
+            if (nested != null) {
+                return nested.under("[" + index + "]");
+            }
+            index++;
+        }
+        return null;
+    }
+
     private static RowValueException wrongType(String column, String expected, Object value) {
-        return new RowValueException(column, expected, "of type " + value.getClass().getSimpleName());
+        return new RowValueException(column, expected, typeOf(value));
+    }
+
+    private static String typeOf(Object value) {
+        return "of type " + value.getClass().getSimpleName();
+    }
+
+    private record Refusal(String path, String found) {
+
+        Refusal under(String segment) {
+            return new Refusal(segment + path, found);
+        }
     }
 }

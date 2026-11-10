@@ -26,7 +26,7 @@ import java.lang.annotation.Target;
  * }</pre>
  */
 @Documented
-@Retention(RetentionPolicy.RUNTIME)
+@Retention(RetentionPolicy.CLASS)
 @Target(ElementType.METHOD)
 public @interface Task {
 

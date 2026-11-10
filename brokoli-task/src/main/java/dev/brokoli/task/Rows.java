@@ -11,14 +11,22 @@ import java.util.Objects;
 import java.util.RandomAccess;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collector;
 
 /**
  * The rows of a dataset whose schema the task does not declare, in order.
  *
  * <p>A task that takes or returns {@code Rows} leaves its row schema undeclared; to declare one,
  * take or return a {@code List} of a Java record instead. {@code Rows} is an unmodifiable
- * {@code List}: adding, removing or replacing rows throws {@link UnsupportedOperationException},
- * and {@link #filter(Predicate)} and {@link #map(Function)} return new rows.
+ * {@code List}: adding, removing or replacing rows throws {@link UnsupportedOperationException}.
+ * {@link #filter(Predicate)} and {@link #map(Function)} return new rows, and a stream of rows
+ * ends in {@code Rows} with {@link #toRows()}:
+ *
+ * <pre>{@code
+ * Rows recent = input.stream()
+ *         .filter(row -> row.getLong("year") >= 2025)
+ *         .collect(Rows.toRows());
+ * }</pre>
  */
 public final class Rows extends AbstractList<Row> implements RandomAccess {
 
@@ -62,12 +70,7 @@ public final class Rows extends AbstractList<Row> implements RandomAccess {
      */
     public static Rows copyOf(Collection<Row> rows) {
         Objects.requireNonNull(rows, "rows");
-        List<Row> copy = new ArrayList<>(rows.size());
-        for (Row row : rows) {
-            int position = copy.size();
-            copy.add(Objects.requireNonNull(row, () -> "row " + position));
-        }
-        return new Rows(Collections.unmodifiableList(copy));
+        return owning(new ArrayList<>(rows));
     }
 
     /**
@@ -76,6 +79,7 @@ public final class Rows extends AbstractList<Row> implements RandomAccess {
      * @param maps the rows as maps, in order
      * @return the rows
      * @throws NullPointerException if {@code maps}, one of its maps, or a column name is null
+     * @throws RowValueException if a map holds a value that is not a JSON value
      */
     public static Rows fromMaps(List<? extends Map<String, ?>> maps) {
         Objects.requireNonNull(maps, "maps");
@@ -85,6 +89,24 @@ public final class Rows extends AbstractList<Row> implements RandomAccess {
             rows.add(Row.of(Objects.requireNonNull(map, () -> "row " + position)));
         }
         return new Rows(Collections.unmodifiableList(rows));
+    }
+
+    /**
+     * A collector that gathers a stream of rows into {@code Rows}, in encounter order.
+     *
+     * @return the collector
+     * @throws NullPointerException when the collected stream holds a null row; the message names
+     *         the row's position
+     */
+    public static Collector<Row, ?, Rows> toRows() {
+        return Collector.of(
+                ArrayList<Row>::new,
+                List::add,
+                (left, right) -> {
+                    left.addAll(right);
+                    return left;
+                },
+                Rows::owning);
     }
 
     /**
@@ -125,7 +147,7 @@ public final class Rows extends AbstractList<Row> implements RandomAccess {
      * @throws NullPointerException if {@code change} returns null; the message names the row's
      *         position
      */
-    public Rows map(Function<? super Row, Row> change) {
+    public Rows map(Function<? super Row, ? extends Row> change) {
         Objects.requireNonNull(change, "change");
         List<Row> changed = new ArrayList<>(rows.size());
         for (Row row : rows) {
@@ -155,5 +177,13 @@ public final class Rows extends AbstractList<Row> implements RandomAccess {
     @Override
     public int size() {
         return rows.size();
+    }
+
+    private static Rows owning(List<Row> rows) {
+        for (int position = 0; position < rows.size(); position++) {
+            int named = position;
+            Objects.requireNonNull(rows.get(position), () -> "row " + named);
+        }
+        return new Rows(Collections.unmodifiableList(rows));
     }
 }

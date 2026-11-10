@@ -1,8 +1,9 @@
 package dev.brokoli.task;
 
-import dev.brokoli.task.exception.RowValueException;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,6 +39,101 @@ class RowTest {
         assertThatThrownBy(() -> row.getLong("ratio"))
                 .isInstanceOf(RowValueException.class)
                 .hasMessage("column 'ratio' is of type Double, expected a whole number");
+    }
+
+    @Test
+    void getLongReadsAnInteger() {
+        Row row = Row.of(Map.of("count", 7));
+
+        assertThat(row.getLong("count")).isEqualTo(7L);
+    }
+
+    @Test
+    void getDoubleReadsAnIntegerAndAFloat() {
+        Row row = Row.of(Map.of("count", 7, "ratio", 0.5f));
+
+        assertThat(row.getDouble("count")).isEqualTo(7.0);
+        assertThat(row.getDouble("ratio")).isEqualTo(0.5);
+    }
+
+    @Test
+    void getDoubleReadsTheLargestLongsADoubleHoldsExactly() {
+        Row row = Row.of(Map.of("limit", 1L << 53, "lowest", Long.MIN_VALUE, "power", 1L << 62));
+
+        assertThat(row.getDouble("limit")).isEqualTo(0x1p53);
+        assertThat(row.getDouble("lowest")).isEqualTo(-0x1p63);
+        assertThat(row.getDouble("power")).isEqualTo(0x1p62);
+    }
+
+    @Test
+    void getDoubleRefusesALongThatADoubleWouldRound() {
+        Row row = Row.of(Map.of("id", (1L << 53) + 1, "highest", Long.MAX_VALUE));
+
+        assertThatThrownBy(() -> row.getDouble("id"))
+                .isInstanceOf(RowValueException.class)
+                .hasMessage("column 'id' is a Long that a double cannot hold exactly, expected a number");
+        assertThatThrownBy(() -> row.getDouble("highest"))
+                .isInstanceOf(RowValueException.class)
+                .hasMessage("column 'highest' is a Long that a double cannot hold exactly, expected a number");
+    }
+
+    @Test
+    void ofAcceptsEveryJsonValueIncludingNestedListsAndMaps() {
+        Map<String, Object> values = new LinkedHashMap<>();
+        values.put("text", "x");
+        values.put("flag", true);
+        values.put("whole", 1L);
+        values.put("small", 1);
+        values.put("fraction", 1.5);
+        values.put("single", 1.5f);
+        values.put("missing", null);
+        values.put("tags", List.of("a", "b"));
+        values.put("attrs", Map.of("size", 3L, "labels", List.of(Map.of("k", "v"))));
+
+        Row row = Row.of(values);
+
+        assertThat(row.columns()).hasSize(9);
+    }
+
+    @Test
+    void ofRefusesValuesTheHarnessCannotWriteNamingTheColumn() {
+        assertRefused("price", new BigDecimal("1.50"), "column 'price' is of type BigDecimal");
+        assertRefused("day", LocalDate.of(2026, 11, 10), "column 'day' is of type LocalDate");
+        assertRefused("n", (short) 1, "column 'n' is of type Short");
+        assertRefused("b", (byte) 1, "column 'b' is of type Byte");
+        assertRefused("ratio", Double.NaN, "column 'ratio' is a number that is not finite");
+        assertRefused("scale", Float.POSITIVE_INFINITY, "column 'scale' is a number that is not finite");
+        assertRefused("parent", Row.of(Map.of("id", 1L)), "column 'parent' is of type Row");
+        assertRefused("codes", new String[] {"a"}, "column 'codes' is of type String[]");
+    }
+
+    @Test
+    void ofRefusesABadValueNestedInAMapOrAListNamingItsPath() {
+        Map<String, Object> attrs = Map.of("size", new BigDecimal("3"));
+        List<Object> tags = List.of("a", "b", LocalDate.of(2026, 11, 10));
+
+        assertRefused("attrs", attrs, "column 'attrs.size' is of type BigDecimal");
+        assertRefused("tags", tags, "column 'tags[2]' is of type LocalDate");
+        assertRefused("deep", List.of(Map.of("inner", List.of(Double.NaN))), "column 'deep[0].inner[0]' is a number that is not finite");
+    }
+
+    @Test
+    void ofRefusesANestedMapWhoseKeysAreNotText() {
+        Map<Object, Object> nullKey = new HashMap<>();
+        nullKey.put(null, 1L);
+
+        assertRefused("attrs", Map.of(1, "x"), "column 'attrs' is a map with a key of type Integer");
+        assertRefused("attrs", nullKey, "column 'attrs' is a map with a null key");
+    }
+
+    @Test
+    void withRefusesAValueTheHarnessCannotWriteAndLeavesTheRowUnchanged() {
+        Row row = Row.of(Map.of("price", "1.50"));
+
+        assertThatThrownBy(() -> row.with("price", new BigDecimal("1.50")))
+                .isInstanceOf(RowValueException.class)
+                .hasMessageStartingWith("column 'price' is of type BigDecimal, expected a JSON value");
+        assertThat(row.getString("price")).isEqualTo("1.50");
     }
 
     @Test
@@ -175,6 +271,22 @@ class RowTest {
         List<String> columns = row.columns();
 
         assertThatThrownBy(() -> columns.add("extra")).isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void toStringShowsTheColumnsAndTheirValues() {
+        Row row = Row.of(Map.of("amount", 5L));
+
+        assertThat(row).hasToString("Row{amount=5}");
+    }
+
+    private static void assertRefused(String column, Object value, String messageStart) {
+        Map<String, Object> values = new HashMap<>();
+        values.put(column, value);
+
+        assertThatThrownBy(() -> Row.of(values))
+                .isInstanceOf(RowValueException.class)
+                .hasMessageStartingWith(messageStart + ", expected a JSON value");
     }
 
     private static Row nullable(String column, Object value) {

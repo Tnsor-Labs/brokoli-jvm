@@ -7,5 +7,4 @@
  */
 module dev.brokoli.task {
     exports dev.brokoli.task;
-    exports dev.brokoli.task.exception;
 }

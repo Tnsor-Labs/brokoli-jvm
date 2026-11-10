@@ -13,10 +13,13 @@ Every entry names its owner.
 
 - **Task API** -- @DarzVadckawy. `brokoli-task` has `@Task` to mark a
   task method, `@Default` to make a task parameter optional, and `Row` and
-  `Rows` for rows whose schema a task does not declare. `getDouble`
-  accepts any number, because the JVM harness decodes a whole number as a
-  `Long`, and every typed getter names the column when its value is
-  missing, null or of another type. `@Task` and `@Default` take effect
+  `Rows` for rows whose schema a task does not declare. A row holds only
+  values the harness can write as JSON, and `Row.of` and `with` refuse any
+  other value, naming the column and the path inside it. `getDouble` reads
+  a whole number, because the JVM harness decodes one as a `Long`, but
+  refuses a `Long` it would round. Every typed getter names the column
+  when its value is missing, null or of another type, and a stream of rows
+  ends in `Rows` with `Rows.toRows()`. `@Task` and `@Default` take effect
   once the annotation processor lands. The javadoc jar is built, and a
   public type or member without Javadoc fails the build.
 - **Architecture decision records** -- @DarzVadckawy. `docs/adr/` holds
