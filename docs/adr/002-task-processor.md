@@ -113,3 +113,5 @@ The interface digest is computed by the bundle plugin, from the interface in thi
 ## Update (2026-11-10)
 
 The task file now has an `entrypoint` for each task, `<package>.<Class>_BrokoliTasks#<method>`, naming the entry method the processor generates next to it. A class with an invalid task gets neither the file nor the generated class. A null interface stays null in the task file: [JVM-ADR-003](./003-generated-entry-method.md) records why a `task` node still needs `input` and `result` ports, and where they are filled in.
+
+The processor never claims `@Task` or `@Default`: `process` returns `false`, so another processor still sees them, as Error Prone's DoNotClaimAnnotations rule and AutoValue do. Under `-Xlint:all`, javac then warns that no processor claimed them. The README shows `-Xlint:-processing` for a build that uses `-Werror` (#16).

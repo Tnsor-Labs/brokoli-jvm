@@ -11,6 +11,10 @@ Every entry names its owner.
 
 ### Added
 
+- **Strict lint builds** -- @DarzVadckawy. The README shows the compiler
+  arguments for a build with `-Xlint:all -Werror`: `-Xlint:-processing`,
+  because the processor leaves `@Task` and `@Default` unclaimed so other
+  processors still see them. Tests keep both behaviours in place.
 - **Generated entry method** -- @DarzVadckawy. For every class with tasks
   the processor generates `<Class>_BrokoliTasks`, with one entry method
   per task that core's JVM harness calls with its `Map` of input rows and

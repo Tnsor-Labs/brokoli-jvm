@@ -43,6 +43,16 @@ Take and return `Rows` to leave the row schema undeclared, or a `List` of a reco
 </plugin>
 ```
 
+The processor leaves `@Task` and `@Default` unclaimed, so other processors still see them, as Error Prone's [DoNotClaimAnnotations](https://errorprone.info/bugpattern/DoNotClaimAnnotations) rule asks. Under `-Xlint:all`, javac therefore warns `No processor claimed any of these annotations`, as it does for AutoValue. A build that also uses `-Werror` turns that one check off:
+
+```xml
+<compilerArgs>
+    <arg>-Xlint:all</arg>
+    <arg>-Xlint:-processing</arg>
+    <arg>-Werror</arg>
+</compilerArgs>
+```
+
 ## How it fits with the rest of Brokoli
 
 - **Java 17 is the floor**, the same minimum core's JVM harness requires (`pkg/taskharness/jvmharness/invocation.go`). CI builds on 17, 21 and 25.
