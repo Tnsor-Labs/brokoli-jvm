@@ -8,7 +8,9 @@ It is not usable yet. The design is core's [ADR-036](https://github.com/Tnsor-La
 
 - `brokoli-task` is the task API: the `@Task` annotation and the row types. It has no dependencies, because it sits on the classpath of every task and anything it pulled in would clash with the task's own dependencies.
 - `brokoli-task-processor` is the annotation processor. At compile time it checks every `@Task` method and writes its task interface and parameters to `META-INF/brokoli/tasks/<class>.json`. It runs only in the compiler, so it never reaches a task's classpath.
-- `brokoli-pipeline` is the authoring side: the pipeline builder, IR emission and task bundle packaging.
+- `brokoli-bundle` packages a compiled project's tasks into task-bundle/v2 archives, one per task, in the form core's `brokoli bundle jvm` writes.
+- `brokoli-maven-plugin` runs it in a Maven build and attaches the bundles to the project.
+- `brokoli-pipeline` is the authoring side: the pipeline builder and IR emission.
 
 ## Writing a task
 
@@ -52,6 +54,27 @@ The processor leaves `@Task` and `@Default` unclaimed, so other processors still
     <arg>-Werror</arg>
 </compilerArgs>
 ```
+
+## Packaging tasks
+
+`brokoli-maven-plugin` writes one task bundle per `@Task` method when the project is packaged:
+
+```xml
+<plugin>
+    <groupId>dev.brokoli</groupId>
+    <artifactId>brokoli-maven-plugin</artifactId>
+    <version>${brokoli.version}</version>
+    <executions>
+        <execution>
+            <goals>
+                <goal>bundle</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+```
+
+`mvn package` then writes `target/<finalName>-<method>.tar.gz` for each task and prints its digest, the `sha256:` a pipeline uses to reference it. Each bundle is attached with the method name as its classifier, so `mvn install` and `mvn deploy` publish it next to the jar. A bundle holds the project's classes and resources, and the jar of every `compile` and `runtime` dependency under `lib/`, `brokoli-task` included. `-Dbrokoli.bundle.skip` skips the goal.
 
 ## How it fits with the rest of Brokoli
 

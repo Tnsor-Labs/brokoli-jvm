@@ -25,5 +25,5 @@ The schemas, fixtures and reference bundles this SDK is tested against are copie
 ## What done means
 
 - `./mvnw verify` passes on JDK 17, 21 and 25. CI runs all three.
-- Public API has Javadoc, and the build fails on a public type or member without it. Javadoc says what the API does and what it refuses, not how it works. Code outside the public API has no comments: rename or restructure instead, and put the reasoning in the PR.
+- Public API has Javadoc, and the build fails on a public type or member without it. Javadoc says what the API does and what it refuses, not how it works. A Maven plugin parameter is public API too: Maven takes its description in `mvn help:describe` from the Javadoc on its field. Code outside the public API has no comments: rename or restructure instead, and put the reasoning in the PR.
 - `brokoli-task` has no dependencies outside test scope. The build fails if one is added.
