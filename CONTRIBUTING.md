@@ -22,8 +22,18 @@ Decisions that only concern this SDK are recorded in [`docs/adr/`](docs/adr/READ
 
 The schemas, fixtures and reference bundles this SDK is tested against are copies of core's, in [`core-contract/`](core-contract/README.md), pinned to the core commit in `core-contract/CORE_REF`. They are never edited by hand. To take a newer core, run `core-contract/vendor.sh` against a core checkout at that commit, update `CORE_REF`, and open the result as its own PR, ahead of any code that depends on it. It needs Go, because the reference bundles are built with core's own CLI. Some reference inputs have paths of up to 180 characters, on purpose, to cover how a tar writes long paths. On Windows, clone with `git config --global core.longpaths true` set, or into a short folder such as `C:\src`.
 
+## The end-to-end test
+
+The invoker IT `run-on-core` in `brokoli-maven-plugin` builds a task project with the plugin, uploads the bundle to a core server, runs a pipeline that reads two rows into the task, and checks the rows the task returns. CI runs it on every JDK, against the core release named by `CORE_VERSION` in `.github/workflows/ci.yml`, after checking the archive against `CORE_SHA256`. A plain `./mvnw verify` leaves it out, because it needs a running server. To run it, start a core release with `brokoli serve --api-key <key>` from a folder outside the checkout, since core writes its data where it runs. It listens on port 8080. Then:
+
+```sh
+BROKOLI_E2E_SERVER=http://127.0.0.1:8080 BROKOLI_E2E_API_KEY=<key> ./mvnw verify '-Dinvoker.test=*'
+```
+
+To take a newer core release, change `CORE_VERSION` and `CORE_SHA256` together, with the sha256 from the release's `checksums.txt`.
+
 ## What done means
 
-- `./mvnw verify` passes on JDK 17, 21 and 25. CI runs all three.
+- `./mvnw verify` passes on JDK 17, 21 and 25. CI runs all three, with the end-to-end test.
 - Public API has Javadoc, and the build fails on a public type or member without it. Javadoc says what the API does and what it refuses, not how it works. A Maven plugin parameter is public API too: Maven takes its description in `mvn help:describe` from the Javadoc on its field. Code outside the public API has no comments: rename or restructure instead, and put the reasoning in the PR.
 - `brokoli-task` has no dependencies outside test scope. The build fails if one is added.

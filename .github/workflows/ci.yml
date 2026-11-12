@@ -21,6 +21,11 @@ jobs:
       fail-fast: false
       matrix:
         java: ['17', '21', '25']
+    env:
+      CORE_VERSION: v0.22.1
+      CORE_SHA256: 73f6bead8c1773b7c02b95625131930ad38952753008b84800fa4fac52f4ceda
+      BROKOLI_E2E_SERVER: http://127.0.0.1:8080
+      BROKOLI_E2E_API_KEY: brokoli-jvm-e2e
 
     steps:
       - name: Checkout repository
@@ -33,8 +38,27 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Verify with Maven
-        run: ./mvnw -B verify
+      - name: Download core ${{ env.CORE_VERSION }}
+        run: |
+          mkdir "$RUNNER_TEMP/core"
+          curl --fail --silent --show-error --location --output "$RUNNER_TEMP/core/brokoli.tar.gz" \
+            "https://github.com/Tnsor-Labs/brokoli/releases/download/$CORE_VERSION/brokoli_Linux_x86_64.tar.gz"
+          echo "$CORE_SHA256  $RUNNER_TEMP/core/brokoli.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/core/brokoli.tar.gz" -C "$RUNNER_TEMP/core" brokoli
+
+      - name: Start core ${{ env.CORE_VERSION }}
+        working-directory: ${{ runner.temp }}/core
+        run: |
+          "$RUNNER_TEMP/core/brokoli" serve --port 8080 --db "$RUNNER_TEMP/core/brokoli.db" \
+            --api-key "$BROKOLI_E2E_API_KEY" > "$RUNNER_TEMP/core/serve.log" 2>&1 &
+          curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-connrefused "$BROKOLI_E2E_SERVER/health"
+
+      - name: Verify with Maven, with the end-to-end test on core
+        run: ./mvnw -B verify '-Dinvoker.test=*'
+
+      - name: Show core's log
+        if: failure()
+        run: cat "$RUNNER_TEMP/core/serve.log"
 
   core-contract:
     name: Vendored core contract matches core

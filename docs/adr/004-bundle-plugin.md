@@ -33,6 +33,7 @@ Two new modules. `brokoli-bundle` is a library that reads the task files the pro
 - `mvn package` gives one bundle per task, and `mvn deploy` publishes them, with nothing to install beyond the plugin.
 - A bundle the plugin writes from the same files is the same tar that `brokoli bundle jvm` writes. The parity test compares the two for all four reference bundles, and ten more paths are compared with what Go 1.26's `archive/tar` writes.
 - Core's `taskbundlev2.Extract` reads the plugin's bundles and verifies every file's size and hash.
+- A bundle from the plugin runs on core. The end-to-end test uploads one to a core release, runs it in a pipeline on JDK 17, 21 and 25, and checks the rows it returns, so the entry method, the resources on the classpath and the typed parameters are tested on the server, not only in this repo.
 
 ### Negative
 
@@ -54,4 +55,4 @@ Two new modules. `brokoli-bundle` is a library that reads the task files the pro
 
 ## Follow-ups
 
-- The week 5 end-to-end test runs a bundle from this plugin on a core server.
+- #27: refuse a bundle over core's size and entry caps at build time, instead of leaving it to the upload.

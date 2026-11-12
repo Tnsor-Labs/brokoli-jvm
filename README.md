@@ -88,7 +88,7 @@ The processor leaves `@Task` and `@Default` unclaimed, so other processors still
 ./mvnw verify
 ```
 
-On Windows use `mvnw.cmd`. Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md).
+On Windows use `mvnw.cmd`. The end-to-end test, which runs a bundle on a core server, needs one running; [CONTRIBUTING.md](CONTRIBUTING.md) says how to run it. Contributions follow CONTRIBUTING.md.
 
 ## License
 

@@ -11,6 +11,12 @@ Every entry names its owner.
 
 ### Added
 
+- **End-to-end test on core** -- @DarzVadckawy. CI downloads core's
+  v0.22.1 release, checks its sha256, and starts it. On JDK 17, 21 and 25
+  a task project is built with `brokoli-maven-plugin`, its bundle is
+  uploaded, and a pipeline that reads two rows into the task runs. The test
+  checks the rows the task returns, which come from its input, a run
+  parameter and a resource in the bundle.
 - **Task bundles** -- @DarzVadckawy. `brokoli-maven-plugin`'s `bundle` goal
   writes one task-bundle/v2 archive per `@Task` method when the project is
   packaged, and attaches it as `<finalName>-<method>.tar.gz` so `install`
