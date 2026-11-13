@@ -57,7 +57,7 @@ jobs:
         run: ./mvnw -B verify '-Dinvoker.test=*'
 
       - name: Show core's log
-        if: failure()
+        if: failure() || cancelled()
         run: cat "$RUNNER_TEMP/core/serve.log"
 
   core-contract:

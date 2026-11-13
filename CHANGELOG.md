@@ -16,7 +16,9 @@ Every entry names its owner.
   a task project is built with `brokoli-maven-plugin`, its bundle is
   uploaded, and a pipeline that reads two rows into the task runs. The test
   checks the rows the task returns, which come from its input, a run
-  parameter and a resource in the bundle.
+  parameter and a resource in the bundle. A run that does not finish within
+  120 s fails with its last status, and CI prints core's log when a job
+  fails or is cancelled.
 - **Task bundles** -- @DarzVadckawy. `brokoli-maven-plugin`'s `bundle` goal
   writes one task-bundle/v2 archive per `@Task` method when the project is
   packaged, and attaches it as `<finalName>-<method>.tar.gz` so `install`
