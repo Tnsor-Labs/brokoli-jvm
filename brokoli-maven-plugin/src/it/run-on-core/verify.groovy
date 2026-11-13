@@ -5,6 +5,7 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.security.MessageDigest
+import java.util.concurrent.TimeUnit
 
 def server = System.getenv('BROKOLI_E2E_SERVER')
 def apiKey = System.getenv('BROKOLI_E2E_API_KEY')
@@ -57,12 +58,14 @@ def pipeline = post('/api/pipelines', [
 
 def run = post("/api/pipelines/${pipeline.id}/run", [parameters: [factor: 3]])
 def finished = ['success', 'failed', 'cancelled']
-def deadline = System.nanoTime() + 120_000_000_000L
+def waitSeconds = 120
+def deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(waitSeconds)
 def detail = get("/api/runs/${run.id}")
 while (!(detail.status in finished) && System.nanoTime() < deadline) {
     sleep 500
     detail = get("/api/runs/${run.id}")
 }
+assert detail.status in finished : "run ${run.id} did not finish within ${waitSeconds} s, its last status was ${detail.status}"
 assert detail.status == 'success' : "run ${run.id} ended ${detail.status}: ${detail.error}"
 assert detail.parameters == [factor: 3]
 
