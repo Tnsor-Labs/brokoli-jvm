@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+for last in "$@"; do :; done
+if [ "${last:-}" != Harness ]; then
+    exec "$BROKOLI_BENCH_JAVA" "$@"
+fi
+
+usage=$(mktemp)
+start=$(date +%s%N)
+status=0
+/usr/bin/time -f %M -o "$usage" "$BROKOLI_BENCH_JAVA" "$@" || status=$?
+end=$(date +%s%N)
+echo "$(( (end - start) / 1000 )) $(tail -n 1 "$usage")" >> "$BROKOLI_BENCH_RECORDS"
+rm -f "$usage"
+exit "$status"

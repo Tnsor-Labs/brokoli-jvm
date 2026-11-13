@@ -13,6 +13,10 @@ on:
 permissions:
   contents: read
 
+env:
+  CORE_VERSION: v0.22.1
+  CORE_SHA256: 73f6bead8c1773b7c02b95625131930ad38952753008b84800fa4fac52f4ceda
+
 jobs:
   verify:
     name: Verify on JDK ${{ matrix.java }}
@@ -22,8 +26,6 @@ jobs:
       matrix:
         java: ['17', '21', '25']
     env:
-      CORE_VERSION: v0.22.1
-      CORE_SHA256: 73f6bead8c1773b7c02b95625131930ad38952753008b84800fa4fac52f4ceda
       BROKOLI_E2E_SERVER: http://127.0.0.1:8080
       BROKOLI_E2E_API_KEY: brokoli-jvm-e2e
 
@@ -55,6 +57,84 @@ jobs:
 
       - name: Verify with Maven, with the end-to-end test on core
         run: ./mvnw -B verify '-Dinvoker.test=*'
+
+      - name: Show core's log
+        if: failure() || cancelled()
+        run: cat "$RUNNER_TEMP/core/serve.log"
+
+  benchmarks:
+    name: Benchmarks on JDK 17, reporting only
+    runs-on: ubuntu-latest
+    env:
+      BROKOLI_E2E_SERVER: http://127.0.0.1:8080
+      BROKOLI_E2E_API_KEY: brokoli-jvm-benchmarks
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Install GNU time
+        run: |
+          if [ ! -x /usr/bin/time ]; then
+            sudo apt-get update
+            sudo apt-get install --yes time
+          fi
+
+      - name: Build the benchmarks
+        run: ./mvnw -B -DskipTests package
+
+      - name: Download core ${{ env.CORE_VERSION }}
+        run: |
+          mkdir "$RUNNER_TEMP/core"
+          curl --fail --silent --show-error --location --output "$RUNNER_TEMP/core/brokoli.tar.gz" \
+            "https://github.com/Tnsor-Labs/brokoli/releases/download/$CORE_VERSION/brokoli_Linux_x86_64.tar.gz"
+          echo "$CORE_SHA256  $RUNNER_TEMP/core/brokoli.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/core/brokoli.tar.gz" -C "$RUNNER_TEMP/core" brokoli
+
+      - name: Start core ${{ env.CORE_VERSION }} with the measuring java first on its PATH
+        working-directory: ${{ runner.temp }}/core
+        env:
+          BROKOLI_BENCH_JAVA: ${{ env.JAVA_HOME }}/bin/java
+          BROKOLI_BENCH_RECORDS: ${{ runner.temp }}/core/attempts.txt
+          BROKOLI_CODE_PASS_ENV: BROKOLI_BENCH_JAVA,BROKOLI_BENCH_RECORDS
+          BROKOLI_JVM_CACHE_DIR: ${{ runner.temp }}/core/jvm-cache
+        run: |
+          PATH="$GITHUB_WORKSPACE/brokoli-benchmarks/bin:$PATH" "$RUNNER_TEMP/core/brokoli" serve --port 8080 \
+            --db "$RUNNER_TEMP/core/brokoli.db" --api-key "$BROKOLI_E2E_API_KEY" > "$RUNNER_TEMP/core/serve.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/core/serve.pid"
+          curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-connrefused "$BROKOLI_E2E_SERVER/health"
+
+      - name: Measure cold starts
+        run: |
+          task_jar=$(ls brokoli-task/target/brokoli-task-*.jar | grep -vE -- '-(sources|javadoc)\.jar$')
+          java -cp brokoli-benchmarks/target/benchmarks.jar dev.brokoli.benchmarks.ColdStart \
+            brokoli-benchmarks/target/classes "$task_jar" "$RUNNER_TEMP/core/attempts.txt" "$RUNNER_TEMP/cold-start.json"
+
+      - name: Stop core
+        run: kill "$(cat "$RUNNER_TEMP/core/serve.pid")"
+
+      - name: Run JMH
+        run: java -jar brokoli-benchmarks/target/benchmarks.jar -rf json -rff "$RUNNER_TEMP/jmh.json"
+
+      - name: Write the summary
+        run: |
+          java -cp brokoli-benchmarks/target/benchmarks.jar dev.brokoli.benchmarks.Report \
+            "$RUNNER_TEMP/cold-start.json" "$RUNNER_TEMP/jmh.json" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmarks
+          path: |
+            ${{ runner.temp }}/cold-start.json
+            ${{ runner.temp }}/jmh.json
 
       - name: Show core's log
         if: failure() || cancelled()
