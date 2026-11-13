@@ -11,6 +11,13 @@ Every entry names its owner.
 
 ### Added
 
+- **Benchmarks** -- @DarzVadckawy. CI reports, on JDK 17 against core
+  v0.22.1, the cold start of a no-op task over 30 runs, its first attempt
+  with an empty harness cache, the peak RSS of its JVM, and a JMH run of
+  100000 rows through records and `Rows`, each against a raw `Map` task
+  that returns the same rows. The numbers go in the
+  job summary and an artifact, next to the targets in #3. Nothing fails the
+  build on them yet.
 - **End-to-end test on core** -- @DarzVadckawy. CI downloads core's
   v0.22.1 release, checks its sha256, and starts it. On JDK 17, 21 and 25
   a task project is built with `brokoli-maven-plugin`, its bundle is

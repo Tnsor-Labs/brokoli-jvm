@@ -32,6 +32,15 @@ BROKOLI_E2E_SERVER=http://127.0.0.1:8080 BROKOLI_E2E_API_KEY=<key> ./mvnw verify
 
 To take a newer core release, change `CORE_VERSION` and `CORE_SHA256` together, with the sha256 from the release's `checksums.txt`.
 
+## Benchmarks
+
+CI's `Benchmarks` job measures the SDK on JDK 17 and only reports: the results go in the job's summary and in the `benchmarks` artifact, and nothing fails the build yet. `brokoli-benchmarks` holds them and is never published.
+
+- **Cold start and memory.** `ColdStart` uploads the bundle of the no-op task `Noop.noop` to core and runs it 31 times. The first run, with an empty harness cache, is the first attempt. For the other 30, `brokoli-benchmarks/bin/java`, first on core's `PATH`, runs each `java` core starts for an attempt under `/usr/bin/time` and records its wall time and peak RSS. Core passes the two variables the script needs through `BROKOLI_CODE_PASS_ENV`.
+- **Row decoding.** `RowsBenchmark` is a JMH class that runs 100000 rows of six columns, a decimal and a timestamp among them, through the generated entry methods for a `List` of records and for `Rows`. Each is compared with a raw `Map` task that gives the same result: records with one that decodes and writes back the six columns by hand, `Rows` with one that reads only the column it filters on. `OrdersTest` checks that each pair returns the same rows, so a baseline cannot drift into doing less work.
+
+To run JMH locally, `./mvnw package -DskipTests` and then `java -jar brokoli-benchmarks/target/benchmarks.jar`. The cold start needs Linux, GNU time and a core server, started as the `Benchmarks` job in `.github/workflows/ci.yml` starts it.
+
 ## What done means
 
 - `./mvnw verify` passes on JDK 17, 21 and 25. CI runs all three, with the end-to-end test.
