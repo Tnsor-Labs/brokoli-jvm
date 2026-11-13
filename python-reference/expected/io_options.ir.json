@@ -1,0 +1,167 @@
+{
+  "dependency_rules": [],
+  "depends_on": [],
+  "description": "",
+  "edges": [
+    {
+      "from": "read_file_1",
+      "to": "shape_1"
+    },
+    {
+      "from": "shape_1",
+      "to": "load_1"
+    },
+    {
+      "from": "fetch_1",
+      "to": "save_1"
+    },
+    {
+      "from": "query_1",
+      "to": "post_1"
+    },
+    {
+      "from": "query_1",
+      "to": "tell_1"
+    }
+  ],
+  "enabled": true,
+  "hooks": {},
+  "ir_version": "2.0",
+  "name": "IO options",
+  "nodes": [
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "_schema_hint": "api_response",
+        "method": "GET",
+        "pool": "api",
+        "response": "dataset",
+        "source_type": "graphql",
+        "url": "https://api.example.com/graphql"
+      },
+      "id": "fetch_1",
+      "name": "Fetch",
+      "type": "source_api"
+    },
+    {
+      "capabilities": [
+        "sink"
+      ],
+      "config": {
+        "conn_id": "clickhouse",
+        "create_table": true,
+        "max_retries": 2,
+        "mode": "append",
+        "pool": "clickhouse",
+        "retry_backoff": "exponential",
+        "table": "events",
+        "table_engine": "ReplacingMergeTree",
+        "timeout": 300
+      },
+      "id": "load_1",
+      "name": "Load",
+      "type": "sink_db"
+    },
+    {
+      "capabilities": [
+        "sink"
+      ],
+      "config": {
+        "max_retries": 1,
+        "method": "POST",
+        "pool": "api",
+        "retry_backoff": "exponential",
+        "url": "https://hooks.example.com/x"
+      },
+      "id": "post_1",
+      "name": "Post",
+      "type": "sink_api"
+    },
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "_schema_hint": "query_result",
+        "conn_id": "warehouse",
+        "pool": "warehouse",
+        "query": "SELECT 1"
+      },
+      "id": "query_1",
+      "name": "Query",
+      "type": "source_db"
+    },
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "format": "csv",
+        "max_retries": 3,
+        "path": "/data/in.csv",
+        "pool": "files",
+        "retry_backoff": "exponential",
+        "timeout": 60
+      },
+      "id": "read_file_1",
+      "name": "Read file",
+      "type": "source_file"
+    },
+    {
+      "capabilities": [
+        "sink"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/out.csv",
+        "pool": "files"
+      },
+      "id": "save_1",
+      "name": "Save",
+      "type": "sink_file"
+    },
+    {
+      "capabilities": [
+        "compute"
+      ],
+      "config": {
+        "language": "typescript",
+        "max_cpu_seconds": 30,
+        "max_memory_mb": 256,
+        "max_retries": 1,
+        "node_path": "/usr/bin/node",
+        "pool": "compute",
+        "retry_backoff": "exponential",
+        "retry_delay": 2000,
+        "script": "export default (rows) => rows"
+      },
+      "id": "shape_1",
+      "name": "Shape",
+      "type": "code"
+    },
+    {
+      "capabilities": [
+        "compute"
+      ],
+      "config": {
+        "max_retries": 2,
+        "notify_type": "webhook",
+        "retry_backoff": "exponential",
+        "retry_delay": 1000,
+        "webhook_url": "https://hooks.example.com/notify"
+      },
+      "id": "tell_1",
+      "name": "Tell",
+      "type": "notify"
+    }
+  ],
+  "params": {},
+  "pipeline_id": "io-options",
+  "schedule": "",
+  "tags": []
+}

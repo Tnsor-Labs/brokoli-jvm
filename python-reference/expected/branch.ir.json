@@ -1,0 +1,134 @@
+{
+  "dependency_rules": [],
+  "depends_on": [],
+  "description": "",
+  "edges": [
+    {
+      "from": "read_a_1",
+      "to": "merge_1"
+    },
+    {
+      "from": "read_b_1",
+      "to": "merge_1"
+    },
+    {
+      "from": "merge_1",
+      "to": "any_rows_1"
+    },
+    {
+      "condition": true,
+      "from": "any_rows_1",
+      "to": "shape_1"
+    },
+    {
+      "from": "shape_1",
+      "to": "load_1"
+    },
+    {
+      "condition": false,
+      "from": "any_rows_1",
+      "to": "nothing_1"
+    }
+  ],
+  "enabled": true,
+  "hooks": {},
+  "ir_version": "2.1",
+  "name": "Guarded Load",
+  "nodes": [
+    {
+      "capabilities": [
+        "compute"
+      ],
+      "config": {
+        "expression": "row_count > 0"
+      },
+      "id": "any_rows_1",
+      "name": "Any Rows",
+      "type": "condition"
+    },
+    {
+      "capabilities": [
+        "sink"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/out.csv"
+      },
+      "id": "load_1",
+      "name": "Load",
+      "type": "sink_file"
+    },
+    {
+      "capabilities": [
+        "compute",
+        "dataset-output"
+      ],
+      "config": {
+        "mode": "union"
+      },
+      "id": "merge_1",
+      "name": "Merge",
+      "type": "union"
+    },
+    {
+      "capabilities": [
+        "compute"
+      ],
+      "config": {
+        "notify_type": "webhook",
+        "webhook_url": "https://hooks.example/x"
+      },
+      "id": "nothing_1",
+      "name": "Nothing",
+      "type": "notify"
+    },
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/a.csv"
+      },
+      "id": "read_a_1",
+      "name": "Read A",
+      "type": "source_file"
+    },
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/b.csv"
+      },
+      "id": "read_b_1",
+      "name": "Read B",
+      "type": "source_file"
+    },
+    {
+      "capabilities": [
+        "compute"
+      ],
+      "config": {
+        "rules": [
+          {
+            "mapping": {
+              "x": "y"
+            },
+            "type": "rename"
+          }
+        ]
+      },
+      "id": "shape_1",
+      "name": "Shape",
+      "type": "transform"
+    }
+  ],
+  "params": {},
+  "pipeline_id": "guarded-load",
+  "schedule": "",
+  "tags": []
+}

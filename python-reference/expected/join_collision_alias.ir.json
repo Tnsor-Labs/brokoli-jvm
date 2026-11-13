@@ -1,0 +1,68 @@
+{
+  "dependency_rules": [],
+  "depends_on": [],
+  "description": "",
+  "edges": [
+    {
+      "from": "left_1",
+      "to": "merge_1"
+    },
+    {
+      "from": "right_1",
+      "to": "merge_1"
+    }
+  ],
+  "enabled": true,
+  "hooks": {},
+  "ir_version": "2.0",
+  "name": "Join Collision Policy",
+  "nodes": [
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "_schema_hint": "query_result",
+        "conn_id": "warehouse",
+        "query": "SELECT id, name FROM left_table"
+      },
+      "id": "left_1",
+      "name": "Left",
+      "type": "source_db"
+    },
+    {
+      "capabilities": [
+        "compute"
+      ],
+      "config": {
+        "collision_policy": "alias",
+        "join_type": "inner",
+        "left_key": "id",
+        "right_alias": "right_row",
+        "right_key": "id"
+      },
+      "id": "merge_1",
+      "name": "Merge",
+      "type": "join"
+    },
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "_schema_hint": "query_result",
+        "conn_id": "warehouse",
+        "query": "SELECT id, name FROM right_table"
+      },
+      "id": "right_1",
+      "name": "Right",
+      "type": "source_db"
+    }
+  ],
+  "params": {},
+  "pipeline_id": "join-collision-policy",
+  "schedule": "",
+  "tags": []
+}

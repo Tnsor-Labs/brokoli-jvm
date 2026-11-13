@@ -22,6 +22,10 @@ Decisions that only concern this SDK are recorded in [`docs/adr/`](docs/adr/READ
 
 The schemas, fixtures and reference bundles this SDK is tested against are copies of core's, in [`core-contract/`](core-contract/README.md), pinned to the core commit in `core-contract/CORE_REF`. They are never edited by hand. To take a newer core, run `core-contract/vendor.sh` against a core checkout at that commit, update `CORE_REF`, and open the result as its own PR, ahead of any code that depends on it. It needs Go, because the reference bundles are built with core's own CLI. Some reference inputs have paths of up to 180 characters, on purpose, to cover how a tar writes long paths. On Windows, clone with `git config --global core.longpaths true` set, or into a short folder such as `C:\src`.
 
+## The Python reference
+
+The pipeline builder is checked against the Python SDK, the reference core's `ir-canonicalization.md` names. [`python-reference/`](python-reference/README.md) holds the Python fixtures of the TypeScript SDK's differential suite and the canonical rendering and digest the Python SDK prints for each, pinned to the SDK commits in `python-reference/REFS`. They are never edited by hand. To take newer SDKs, run `python-reference/vendor.sh` against both checkouts at those commits, which needs `python3` and Linux or WSL, update `REFS`, and open the result as its own PR, ahead of any code that depends on it.
+
 ## The end-to-end test
 
 The invoker IT `run-on-core` in `brokoli-maven-plugin` builds a task project with the plugin, uploads the bundle to a core server, runs a pipeline that reads two rows into the task, and checks the rows the task returns. CI runs it on every JDK, against the core release named by `CORE_VERSION` in `.github/workflows/ci.yml`, after checking the archive against `CORE_SHA256`. A plain `./mvnw verify` leaves it out, because it needs a running server. To run it, start a core release with `brokoli serve --api-key <key>` from a folder outside the checkout, since core writes its data where it runs. It listens on port 8080. Then:

@@ -1,0 +1,68 @@
+{
+  "dependency_rules": [],
+  "depends_on": [],
+  "description": "",
+  "edges": [
+    {
+      "from": "fetch_1",
+      "to": "push_1"
+    }
+  ],
+  "enabled": true,
+  "hooks": {},
+  "ir_version": "2.0",
+  "name": "Item Sync",
+  "nodes": [
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "_schema_hint": "api_response",
+        "execution": {
+          "page_max_retries": 3
+        },
+        "headers": {
+          "X-Api-Key": "${secret.items_key}"
+        },
+        "max_retries": 3,
+        "method": "GET",
+        "pagination": {
+          "limit_param": "limit",
+          "offset_param": "offset",
+          "page_size": 100,
+          "strategy": "offset"
+        },
+        "params": {
+          "since": "${param.since}",
+          "status": "active"
+        },
+        "records": "data.items",
+        "response": "dataset",
+        "retry_backoff": "exponential",
+        "timeout": 30,
+        "url": "https://api.example.com/items"
+      },
+      "id": "fetch_1",
+      "name": "Fetch",
+      "type": "source_api"
+    },
+    {
+      "capabilities": [
+        "sink"
+      ],
+      "config": {
+        "method": "POST",
+        "url": "https://sink.example.com/ingest"
+      },
+      "id": "push_1",
+      "name": "Push",
+      "type": "sink_api"
+    }
+  ],
+  "params": {},
+  "pipeline_id": "item-sync",
+  "schedule": "",
+  "tags": []
+}

@@ -1,0 +1,38 @@
+name: Python reference drift
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: Python reference matches the SDKs' main
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout the Python SDK's main
+        uses: actions/checkout@v4
+        with:
+          repository: Tnsor-Labs/brokoli-sdk
+          path: brokoli-sdk
+
+      - name: Checkout the TypeScript SDK's main
+        uses: actions/checkout@v4
+        with:
+          repository: Tnsor-Labs/brokoli-typescript
+          path: brokoli-typescript
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compare the vendored fixtures and goldens with the SDKs' main
+        run: python-reference/check.sh brokoli-sdk brokoli-typescript

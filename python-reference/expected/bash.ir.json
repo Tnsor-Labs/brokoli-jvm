@@ -1,0 +1,55 @@
+{
+  "dependency_rules": [],
+  "depends_on": [],
+  "description": "",
+  "edges": [
+    {
+      "from": "input_1",
+      "to": "refresh-export"
+    }
+  ],
+  "enabled": true,
+  "hooks": {},
+  "ir_version": "2.0",
+  "name": "Bash export",
+  "nodes": [
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/in.csv"
+      },
+      "id": "input_1",
+      "name": "Input",
+      "type": "source_file"
+    },
+    {
+      "capabilities": [
+        "compute"
+      ],
+      "config": {
+        "command": "./refresh.sh --since \"$SINCE\"",
+        "env": {
+          "SINCE": "${param.since}"
+        },
+        "max_cpu_seconds": 300,
+        "max_memory_mb": 512,
+        "max_retries": 2,
+        "retry_backoff": "exponential",
+        "retry_delay": 30000,
+        "timeout": 600,
+        "working_dir": "/data/jobs"
+      },
+      "id": "refresh-export",
+      "name": "Refresh",
+      "type": "bash"
+    }
+  ],
+  "params": {},
+  "pipeline_id": "bash-export",
+  "schedule": "",
+  "tags": []
+}
