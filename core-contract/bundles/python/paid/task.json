@@ -1,0 +1,46 @@
+{
+  "name": "Paid Lines",
+  "module": "paid_task",
+  "symbol": "paid",
+  "interface": {
+    "contract": "brokoli.task-interface/v1",
+    "inputs": {
+      "input": {
+        "value": {
+          "kind": "dataset",
+          "row": {
+            "kind": "record",
+            "fields": [
+              {"name": "id", "type": {"kind": "int64"}, "required": true},
+              {"name": "customer", "type": {"kind": "string"}, "required": true},
+              {"name": "amount", "type": {"kind": "float64"}, "required": true},
+              {"name": "paid", "type": {"kind": "boolean"}, "required": true},
+              {"name": "region", "type": {"kind": "string"}, "required": true},
+              {"name": "quantity", "type": {"kind": "int64"}, "required": true}
+            ],
+            "additional_fields": false
+          }
+        }
+      }
+    },
+    "outputs": {
+      "result": {
+        "value": {
+          "kind": "dataset",
+          "row": {
+            "kind": "record",
+            "fields": [
+              {"name": "id", "type": {"kind": "int64"}, "required": true},
+              {"name": "customer", "type": {"kind": "string"}, "required": true},
+              {"name": "amount", "type": {"kind": "float64"}, "required": true},
+              {"name": "paid", "type": {"kind": "boolean"}, "required": true},
+              {"name": "region", "type": {"kind": "string"}, "required": true},
+              {"name": "quantity", "type": {"kind": "int64"}, "required": true}
+            ],
+            "additional_fields": false
+          }
+        }
+      }
+    }
+  }
+}

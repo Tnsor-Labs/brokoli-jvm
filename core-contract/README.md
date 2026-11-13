@@ -9,6 +9,11 @@ The parts of [Tnsor-Labs/brokoli](https://github.com/Tnsor-Labs/brokoli)'s contr
 - `long-paths`: a path over 100 characters that USTAR's prefix field can hold, and two whose last part is over 100 characters, which get a PAX header.
 - `non-ascii-paths`: a class named `Magazyn$Ładunek` and a task method `zważ`, which get a PAX header and literal UTF-8 in the manifest.
 
+Two Python bundles are there too, for the benchmarks to compare a JVM task with a Python task on the same `task` node path. Core has no CLI for a Python bundle, so `vendor.sh` builds them with core's own `taskbundlev2.Assemble`, through `bundles/python/assemble.go`, which it runs inside the core checkout. Each folder under `bundles/python/` is one bundle: `task.json` names it, its module and function and its interface, and `src/` holds its files. `assemble.go` writes the digests the way `brokoli bundle jvm` does, with the interface digest from core's `taskinterface.InterfaceDigest`.
+
+- `python-noop`: `noop(input=())`, which returns its input. Like the JVM `Noop`, it declares no interface, so it runs as a source with no input, and core's digest of that is the one the JVM `Noop` bundle has.
+- `python-paid`: `paid(input)`, which keeps the rows whose `paid` is true, over records of six columns.
+
 The bundle plugin's parity test packages the same inputs and compares the result with these bundles below gzip: the manifest, the file list and the uncompressed tar. The gzip bytes are not compared, because neither Go nor zlib promises the same compressed bytes across versions.
 
 ## Checking and re-vendoring

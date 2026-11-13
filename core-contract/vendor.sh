@@ -22,3 +22,8 @@ for args in "$here"/bundles/*.args; do
     name="$(basename "$args" .args)"
     (cd "$here/bundles" && xargs "$cli" bundle jvm --out "$out/bundles/$name.tar.gz" < "$args" > /dev/null)
 done
+
+assembler="$(mktemp -d "$core/brokoli-jvm-assemble.XXXXXX")"
+trap 'rm -rf "$assembler"' EXIT
+cp "$here/bundles/python/assemble.go" "$assembler/main.go"
+(cd "$core" && GOTOOLCHAIN="${toolchain:-auto}" go run "./$(basename "$assembler")" "$here/bundles/python" "$out/bundles")

@@ -50,7 +50,9 @@ Every entry names its owner.
   prefix field and PAX headers. The copies include core's canonical
   rendering vectors, the cross-SDK cases for how a document is written
   before it is hashed, and the expected interface and parameters digest
-  of every differential vector.
+  of every differential vector. Two Python bundles, a no-op and one that
+  keeps the paid rows, are built with core's own `taskbundlev2.Assemble`
+  for the benchmarks to compare a JVM task with a Python one.
 - **Same task file on every JDK** -- @DarzVadckawy. A `float64` in the task
   file is written as the shortest text that reads back as the same number,
   in the form RFC 8785, Go and JavaScript use (`1e+23`, `5e-324`), so a

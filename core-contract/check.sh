@@ -35,6 +35,17 @@ for args in "$here"/bundles/*.args; do
     fi
 done
 
+for case in "$here"/bundles/python/*/; do
+    name="python-$(basename "$case")"
+    if [ ! -f "$here/bundles/$name.tar.gz" ]; then
+        echo "no reference bundle for bundles/python/$(basename "$case")"
+        status=1
+    elif ! cmp -s <(gzip -dc "$here/bundles/$name.tar.gz") <(gzip -dc "$fresh/bundles/$name.tar.gz"); then
+        echo "differs from core's taskbundlev2.Assemble, uncompressed: bundles/$name.tar.gz"
+        status=1
+    fi
+done
+
 if [ "$status" -eq 0 ]; then
     echo "core-contract matches core at $(git -C "$core" rev-parse HEAD)"
 fi

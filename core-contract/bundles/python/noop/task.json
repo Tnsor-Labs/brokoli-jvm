@@ -1,0 +1,6 @@
+{
+  "name": "Noop",
+  "module": "noop_task",
+  "symbol": "noop",
+  "interface": null
+}
