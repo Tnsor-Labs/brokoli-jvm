@@ -8,7 +8,10 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.Set;
 
@@ -31,6 +34,10 @@ final class CoreServer {
     private static final int LAST_SUCCESS_CODE = 299;
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
     private static final Duration POLL_INTERVAL = Duration.ofMillis(100);
+    private static final String DIGEST_PREFIX = "sha256:";
+    private static final String SHA_256 = "SHA-256";
+    private static final String SERVER = "BROKOLI_E2E_SERVER";
+    private static final String API_KEY = "BROKOLI_E2E_API_KEY";
 
     private final HttpClient http = HttpClient.newHttpClient();
     private final String server;
@@ -41,8 +48,30 @@ final class CoreServer {
         this.apiKey = apiKey;
     }
 
-    void upload(String digest, byte[] archive) throws IOException, InterruptedException {
+    static CoreServer fromEnvironment() {
+        return new CoreServer(requiredEnv(SERVER), requiredEnv(API_KEY));
+    }
+
+    private static String requiredEnv(String name) {
+        String value = System.getenv(name);
+        if (value == null || value.isEmpty()) {
+            throw new BenchmarkException(name + " is not set: the benchmarks on core need a running core server");
+        }
+        return value;
+    }
+
+    String upload(byte[] archive) throws IOException, InterruptedException {
+        String digest = DIGEST_PREFIX + HexFormat.of().formatHex(sha256(archive));
         send(POST, "/api/task-bundles-v2/" + digest, HttpRequest.BodyPublishers.ofByteArray(archive), ARCHIVE_TYPE);
+        return digest;
+    }
+
+    private static byte[] sha256(byte[] archive) {
+        try {
+            return MessageDigest.getInstance(SHA_256).digest(archive);
+        } catch (NoSuchAlgorithmException missing) {
+            throw new IllegalStateException(SHA_256 + " is not available", missing);
+        }
     }
 
     String createPipeline(Map<String, Object> pipeline) throws IOException, InterruptedException {

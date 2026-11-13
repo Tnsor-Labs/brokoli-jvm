@@ -1,0 +1,2 @@
+#!/bin/sh
+exec "$(dirname "$0")/../measure.sh" python "$BROKOLI_BENCH_PYTHON" harness.py "$@"

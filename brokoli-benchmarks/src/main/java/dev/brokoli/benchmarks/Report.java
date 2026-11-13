@@ -13,8 +13,9 @@ import java.util.Map;
 public final class Report {
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
-    private static final String USAGE = "usage: Report <cold start result> <JMH result>";
-    private static final int ARGUMENTS = 2;
+    private static final String USAGE = "usage: Report <cold start result> <large input result> <JMH result>";
+    private static final int ARGUMENTS = 3;
+    private static final double MILLIS_PER_SECOND = 1000.0;
     private static final String RECORDS = "records";
     private static final String ROWS = "rows";
     private static final String RAW_MAP = "rawMap";
@@ -37,31 +38,64 @@ public final class Report {
         if (args.length != ARGUMENTS) {
             throw new BenchmarkException(USAGE);
         }
-        System.out.print(markdown(JSON.readTree(Files.readString(Path.of(args[0]))),
-                JSON.readTree(Files.readString(Path.of(args[1])))));
+        System.out.print(markdown(read(args[0]), read(args[1]), read(args[2])));
     }
 
-    static String markdown(JsonNode coldStart, JsonNode jmh) {
+    static String markdown(JsonNode coldStart, JsonNode largeInput, JsonNode jmh) {
         StringBuilder table = new StringBuilder()
                 .append("### Benchmarks\n\n")
                 .append("Reporting only, nothing here fails the build. The task JVM ran on Java ")
                 .append(coldStart.path(ColdStart.JAVA_VERSION).asString()).append(".\n\n")
                 .append("| Measure | Result | Target |\n")
                 .append("|---|---|---|\n");
-        JsonNode wall = coldStart.path(ColdStart.COLD_START_MS);
-        JsonNode rss = coldStart.path(ColdStart.PEAK_RSS_MIB);
-        JsonNode node = coldStart.path(ColdStart.NODE_DURATION_MS);
-        row(table, "Cold start of a no-op task, p50 of " + ColdStart.RUNS, millis(wall.path(ColdStart.P50)),
-                "under 100 ms");
-        row(table, "Cold start of a no-op task, p95 of " + ColdStart.RUNS, millis(wall.path(ColdStart.P95)),
+        coldStart(table, coldStart);
+        largeInput(table, largeInput);
+        jmh(table, jmh);
+        return table.toString();
+    }
+
+    private static void coldStart(StringBuilder table, JsonNode coldStart) {
+        JsonNode jvm = coldStart.path(Attempts.JVM);
+        JsonNode python = coldStart.path(Attempts.PYTHON);
+        String runs = " of " + ColdStart.RUNS;
+        row(table, "JVM cold start of a no-op task, p50" + runs, millis(p50(jvm, ColdStart.WALL_MS)), "under 100 ms");
+        row(table, "JVM cold start of a no-op task, p95" + runs, millis(jvm.path(ColdStart.WALL_MS).path(Summary.P95)),
                 "under 150 ms");
-        row(table, "First attempt, with the harness compiled", millis(coldStart.path(ColdStart.FIRST_ATTEMPT_MS)),
+        row(table, "Python cold start of a no-op task, p50" + runs, millis(p50(python, ColdStart.WALL_MS)), "");
+        row(table, "JVM cold start less Python's, p50", format("%+.1f",
+                p50(jvm, ColdStart.WALL_MS).asDouble() - p50(python, ColdStart.WALL_MS).asDouble()) + " ms",
+                "under 50 ms");
+        row(table, "JVM first attempt, with the harness compiled", millis(jvm.path(ColdStart.FIRST_ATTEMPT_MS)),
                 "under 2500 ms");
-        row(table, "Peak RSS of a no-op task, highest of " + ColdStart.RUNS,
-                mebibytes(rss.path(ColdStart.MAX)) + " (p50 " + mebibytes(rss.path(ColdStart.P50)) + ")",
-                "under 96 MiB");
-        row(table, "Task node duration in core, p50 and p95", millis(node.path(ColdStart.P50)) + " and "
-                + millis(node.path(ColdStart.P95)), "");
+        row(table, "Python first attempt", millis(python.path(ColdStart.FIRST_ATTEMPT_MS)), "");
+        row(table, "JVM peak RSS of a no-op task, highest" + runs, peak(jvm.path(ColdStart.RSS_MIB)), "under 96 MiB");
+        row(table, "Python peak RSS of a no-op task, highest" + runs, peak(python.path(ColdStart.RSS_MIB)), "");
+        row(table, "Task node duration in core, p50, JVM and Python", millis(p50(jvm, ColdStart.NODE_MS)) + " and "
+                + millis(p50(python, ColdStart.NODE_MS)), "");
+    }
+
+    private static void largeInput(StringBuilder table, JsonNode largeInput) {
+        long rows = largeInput.path(LargeInput.ROWS_KEY).asLong();
+        JsonNode sdk = largeInput.path(LargeInput.SDK);
+        JsonNode rawMap = largeInput.path(LargeInput.RAW_MAP);
+        JsonNode python = largeInput.path(LargeInput.PYTHON);
+        String of = rows + " rows, ";
+        String runs = " of " + LargeInput.RUNS;
+        row(table, of + "JVM SDK task, p50" + runs, throughput(rows, sdk) + ", Python " + throughput(rows, python),
+                "at least the Python task");
+        row(table, of + "raw `Map` JVM task, p50" + runs, throughput(rows, rawMap), "");
+        row(table, of + "Python task, p50" + runs, throughput(rows, python), "");
+        double sdkPeak = sdk.path(LargeInput.RSS_MIB).path(Summary.MAX).asDouble();
+        double rawPeak = rawMap.path(LargeInput.RSS_MIB).path(Summary.MAX).asDouble();
+        row(table, of + "peak RSS of the JVM SDK task, highest" + runs, mebibytes(sdkPeak) + ", "
+                + format("%+.1f", (sdkPeak / rawPeak - 1) * PERCENT) + "% over the raw `Map` task",
+                "at most 10% over the raw `Map` task");
+        row(table, of + "peak RSS of the raw `Map` JVM task, highest" + runs, mebibytes(rawPeak), "");
+        row(table, of + "peak RSS of the Python task, highest" + runs,
+                mebibytes(python.path(LargeInput.RSS_MIB).path(Summary.MAX).asDouble()), "");
+    }
+
+    private static void jmh(StringBuilder table, JsonNode jmh) {
 
         Map<String, Double> scores = new HashMap<>();
         for (JsonNode result : jmh.values()) {
@@ -85,7 +119,24 @@ public final class Report {
                         * PERCENT) + "% over " + name, "at most 5% over " + name);
             }
         }
-        return table.toString();
+    }
+
+    private static JsonNode read(String path) throws IOException {
+        return JSON.readTree(Files.readString(Path.of(path)));
+    }
+
+    private static JsonNode p50(JsonNode runtime, String measure) {
+        return runtime.path(measure).path(Summary.P50);
+    }
+
+    private static String peak(JsonNode rss) {
+        return mebibytes(rss.path(Summary.MAX).asDouble()) + " (p50 " + mebibytes(rss.path(Summary.P50).asDouble())
+                + ")";
+    }
+
+    private static String throughput(long rows, JsonNode task) {
+        double millis = task.path(LargeInput.NODE_MS).path(Summary.P50).asDouble();
+        return format("%.0f", millis) + " ms, " + format("%.0f", rows / (millis / MILLIS_PER_SECOND)) + " rows/s";
     }
 
     private static void row(StringBuilder table, String measure, String result, String target) {
@@ -105,8 +156,8 @@ public final class Report {
         return format("%.1f", value.asDouble()) + " ms";
     }
 
-    private static String mebibytes(JsonNode value) {
-        return format("%.1f", value.asDouble()) + " MiB";
+    private static String mebibytes(double value) {
+        return format("%.1f", value) + " MiB";
     }
 
     private static String format(String pattern, double value) {

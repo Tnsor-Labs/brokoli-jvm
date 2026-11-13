@@ -98,14 +98,23 @@ jobs:
           echo "$CORE_SHA256  $RUNNER_TEMP/core/brokoli.tar.gz" | sha256sum --check
           tar -xzf "$RUNNER_TEMP/core/brokoli.tar.gz" -C "$RUNNER_TEMP/core" brokoli
 
-      - name: Start core ${{ env.CORE_VERSION }} with the measuring java first on its PATH
+      - name: Bundle the raw Map task with core's CLI
+        run: |
+          "$RUNNER_TEMP/core/brokoli" bundle jvm --classes brokoli-benchmarks/target/classes \
+            --entrypoint 'dev.brokoli.benchmarks.Lines#paidLineMaps' --name 'Paid Lines raw Map' \
+            --out "$RUNNER_TEMP/raw-map.tar.gz"
+
+      - name: Start core ${{ env.CORE_VERSION }} with the measuring java and python3 first on its PATH
         working-directory: ${{ runner.temp }}/core
         env:
           BROKOLI_BENCH_JAVA: ${{ env.JAVA_HOME }}/bin/java
-          BROKOLI_BENCH_RECORDS: ${{ runner.temp }}/core/attempts.txt
-          BROKOLI_CODE_PASS_ENV: BROKOLI_BENCH_JAVA,BROKOLI_BENCH_RECORDS
+          BROKOLI_BENCH_RECORDS: ${{ runner.temp }}/core/attempts
+          BROKOLI_CODE_PASS_ENV: BROKOLI_BENCH_JAVA,BROKOLI_BENCH_PYTHON,BROKOLI_BENCH_RECORDS
           BROKOLI_JVM_CACHE_DIR: ${{ runner.temp }}/core/jvm-cache
         run: |
+          mkdir "$BROKOLI_BENCH_RECORDS"
+          BROKOLI_BENCH_PYTHON="$(command -v python3)"
+          export BROKOLI_BENCH_PYTHON
           PATH="$GITHUB_WORKSPACE/brokoli-benchmarks/bin:$PATH" "$RUNNER_TEMP/core/brokoli" serve --port 8080 \
             --db "$RUNNER_TEMP/core/brokoli.db" --api-key "$BROKOLI_E2E_API_KEY" > "$RUNNER_TEMP/core/serve.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/core/serve.pid"
@@ -115,7 +124,15 @@ jobs:
         run: |
           task_jar=$(ls brokoli-task/target/brokoli-task-*.jar | grep -vE -- '-(sources|javadoc)\.jar$')
           java -cp brokoli-benchmarks/target/benchmarks.jar dev.brokoli.benchmarks.ColdStart \
-            brokoli-benchmarks/target/classes "$task_jar" "$RUNNER_TEMP/core/attempts.txt" "$RUNNER_TEMP/cold-start.json"
+            brokoli-benchmarks/target/classes "$task_jar" core-contract/bundles/python-noop.tar.gz \
+            "$RUNNER_TEMP/core/attempts" "$RUNNER_TEMP/cold-start.json"
+
+      - name: Measure 1M rows
+        run: |
+          task_jar=$(ls brokoli-task/target/brokoli-task-*.jar | grep -vE -- '-(sources|javadoc)\.jar$')
+          java -cp brokoli-benchmarks/target/benchmarks.jar dev.brokoli.benchmarks.LargeInput \
+            brokoli-benchmarks/target/classes "$task_jar" "$RUNNER_TEMP/raw-map.tar.gz" \
+            core-contract/bundles/python-paid.tar.gz "$RUNNER_TEMP/core/attempts" "$RUNNER_TEMP/large-input.json"
 
       - name: Stop core
         run: kill "$(cat "$RUNNER_TEMP/core/serve.pid")"
@@ -126,7 +143,8 @@ jobs:
       - name: Write the summary
         run: |
           java -cp brokoli-benchmarks/target/benchmarks.jar dev.brokoli.benchmarks.Report \
-            "$RUNNER_TEMP/cold-start.json" "$RUNNER_TEMP/jmh.json" >> "$GITHUB_STEP_SUMMARY"
+            "$RUNNER_TEMP/cold-start.json" "$RUNNER_TEMP/large-input.json" "$RUNNER_TEMP/jmh.json" \
+            >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the results
         uses: actions/upload-artifact@v4
@@ -134,6 +152,7 @@ jobs:
           name: benchmarks
           path: |
             ${{ runner.temp }}/cold-start.json
+            ${{ runner.temp }}/large-input.json
             ${{ runner.temp }}/jmh.json
 
       - name: Show core's log
