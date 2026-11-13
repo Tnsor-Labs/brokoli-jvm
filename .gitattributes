@@ -2,4 +2,4 @@
 *.cmd text eol=crlf
 *.sh text eol=lf
 core-contract/** -text
-brokoli-benchmarks/bin/java text eol=lf
+brokoli-benchmarks/bin/* text eol=lf
