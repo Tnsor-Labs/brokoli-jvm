@@ -11,6 +11,13 @@ Every entry names its owner.
 
 ### Added
 
+- **Python reference** -- @DarzVadckawy. `python-reference/` holds the 13
+  pipelines of the cross-SDK differential suite, written with the Python
+  SDK, and the canonical rendering and digest the Python SDK gives each,
+  pinned to the SDK commits in `REFS`, for the pipeline builder to be
+  checked against. The PR check runs them again at the pins, and a weekly
+  job against the SDKs' `main` reports drift. `core-contract/` now also
+  holds core's `pipeline-ir-2.2.json`.
 - **Benchmarks** -- @DarzVadckawy. CI reports, on JDK 17 against core
   v0.22.1, the cold start of a no-op task over 30 runs next to a Python
   no-op on the same `task` node path, its first attempt with an empty

@@ -1,0 +1,75 @@
+{
+  "dependency_rules": [],
+  "depends_on": [],
+  "description": "Clean the daily sales file",
+  "edges": [
+    {
+      "from": "read_1",
+      "to": "clean_1"
+    },
+    {
+      "from": "clean_1",
+      "to": "write_1"
+    }
+  ],
+  "enabled": true,
+  "hooks": {},
+  "ir_version": "2.0",
+  "name": "Sales ETL",
+  "nodes": [
+    {
+      "capabilities": [
+        "compute"
+      ],
+      "config": {
+        "rules": [
+          {
+            "mapping": {
+              "amt": "amount"
+            },
+            "type": "rename"
+          },
+          {
+            "condition": "amount > 0",
+            "type": "filter"
+          }
+        ]
+      },
+      "id": "clean_1",
+      "name": "Clean",
+      "type": "transform"
+    },
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/sales.csv"
+      },
+      "id": "read_1",
+      "name": "Read",
+      "type": "source_file"
+    },
+    {
+      "capabilities": [
+        "sink"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/out.csv"
+      },
+      "id": "write_1",
+      "name": "Write",
+      "type": "sink_file"
+    }
+  ],
+  "params": {},
+  "pipeline_id": "sales-etl",
+  "schedule": "",
+  "tags": [
+    "daily",
+    "finance"
+  ]
+}

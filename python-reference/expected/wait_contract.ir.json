@@ -1,0 +1,108 @@
+{
+  "dependency_rules": [],
+  "depends_on": [],
+  "description": "",
+  "edges": [
+    {
+      "from": "export-landed",
+      "to": "read_export_1"
+    },
+    {
+      "from": "read_export_1",
+      "to": "upstream_done_1"
+    },
+    {
+      "from": "upstream_done_1",
+      "to": "orders_contract_1"
+    }
+  ],
+  "enabled": true,
+  "hooks": {},
+  "ir_version": "2.0",
+  "name": "Wait and contract",
+  "nodes": [
+    {
+      "capabilities": [
+        "compute",
+        "dataset-output"
+      ],
+      "config": {
+        "condition": "file_exists",
+        "offset": "500ms",
+        "path": "/data/exports/*.csv",
+        "poll_interval": "300s",
+        "timeout": "4h"
+      },
+      "id": "export-landed",
+      "name": "Export landed",
+      "type": "wait"
+    },
+    {
+      "capabilities": [
+        "compute"
+      ],
+      "config": {
+        "contract": {
+          "contract": {
+            "id": "orders",
+            "version": "1"
+          },
+          "input": {
+            "kind": "record-stream"
+          },
+          "ir_version": "1.0",
+          "rules": [
+            {
+              "id": "email-valid",
+              "kind": "record",
+              "on_breach": {
+                "action": "quarantine",
+                "severity": "error"
+              },
+              "path": "$.email",
+              "predicate": {
+                "format": "email",
+                "op": "format"
+              }
+            }
+          ]
+        },
+        "max_retries": 1,
+        "retry_backoff": "exponential"
+      },
+      "id": "orders_contract_1",
+      "name": "Orders contract",
+      "type": "contract_gate"
+    },
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/exports/orders.csv"
+      },
+      "id": "read_export_1",
+      "name": "Read export",
+      "type": "source_file"
+    },
+    {
+      "capabilities": [
+        "compute",
+        "dataset-output"
+      ],
+      "config": {
+        "condition": "pipeline",
+        "pipeline_id": "nightly"
+      },
+      "id": "upstream_done_1",
+      "name": "Upstream done",
+      "type": "wait"
+    }
+  ],
+  "params": {},
+  "pipeline_id": "wait-contract",
+  "schedule": "",
+  "tags": []
+}

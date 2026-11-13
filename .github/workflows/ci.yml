@@ -159,6 +159,42 @@ jobs:
         if: failure() || cancelled()
         run: cat "$RUNNER_TEMP/core/serve.log"
 
+  python-reference:
+    name: Python reference matches the Python SDK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read the pinned SDK commits
+        id: refs
+        run: |
+          echo "sdk=$(awk '$1 == "brokoli-sdk" { print $2 }' python-reference/REFS)" >> "$GITHUB_OUTPUT"
+          echo "typescript=$(awk '$1 == "brokoli-typescript" { print $2 }' python-reference/REFS)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout the Python SDK at the pinned commit
+        uses: actions/checkout@v4
+        with:
+          repository: Tnsor-Labs/brokoli-sdk
+          ref: ${{ steps.refs.outputs.sdk }}
+          path: brokoli-sdk
+
+      - name: Checkout the TypeScript SDK at the pinned commit
+        uses: actions/checkout@v4
+        with:
+          repository: Tnsor-Labs/brokoli-typescript
+          ref: ${{ steps.refs.outputs.typescript }}
+          path: brokoli-typescript
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compare the vendored fixtures and goldens with the Python SDK
+        run: python-reference/check.sh brokoli-sdk brokoli-typescript
+
   core-contract:
     name: Vendored core contract matches core
     runs-on: ubuntu-latest

@@ -14,5 +14,6 @@ docs/schema/fixtures/task-interface/differential/enum-field.json
 docs/schema/fixtures/task-interface/differential/nested-record.json
 docs/schema/fixtures/task-interface/differential/nullable-required-field.json
 docs/schema/fixtures/task-interface/differential/required-parameter.json
+docs/schema/pipeline-ir-2.2.json
 docs/schema/task-bundle-v2.json
 docs/schema/task-interface-v1.json

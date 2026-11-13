@@ -1,0 +1,81 @@
+{
+  "dependency_rules": [],
+  "depends_on": [],
+  "description": "",
+  "edges": [
+    {
+      "from": "copy_events_1",
+      "to": "models_1"
+    }
+  ],
+  "enabled": true,
+  "hooks": {},
+  "ir_version": "2.0",
+  "name": "Migrate and dbt",
+  "nodes": [
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "chunk_size": 1000,
+        "create_table": false,
+        "dest_conn_id": "dwh",
+        "dest_table": "events",
+        "dest_uri": "",
+        "dialect": "postgres",
+        "key_columns": [
+          "id",
+          "updated_at"
+        ],
+        "max_retries": 2,
+        "mode": "upsert",
+        "partition": {
+          "boundaries": [
+            "2026-01-01T00:00:00.000Z",
+            "2026-02-01T00:00:00Z",
+            "2026-03-01T00:00:00Z"
+          ],
+          "column": "updated_at",
+          "max_parallel": 2,
+          "strategy": "date"
+        },
+        "pool": "dwh",
+        "retry_backoff": "exponential",
+        "retry_delay": 5000,
+        "source_conn_id": "oltp",
+        "source_query": "SELECT * FROM events",
+        "source_uri": "",
+        "timeout": 900
+      },
+      "id": "copy_events_1",
+      "name": "Copy events",
+      "type": "migrate"
+    },
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "command": "build",
+        "conn_id": "dwh",
+        "max_retries": 1,
+        "output_model": "orders",
+        "pool": "dwh",
+        "retry_backoff": "exponential",
+        "select": "marts",
+        "target_schema": "analytics",
+        "vars": "{\"full_refresh\":true,\"nested\":{\"a\":[1,\"x\"],\"b\":2},\"run_date\":\"2026-10-14\"}"
+      },
+      "id": "models_1",
+      "name": "Models",
+      "type": "dbt"
+    }
+  ],
+  "params": {},
+  "pipeline_id": "migrate-dbt",
+  "schedule": "",
+  "tags": []
+}

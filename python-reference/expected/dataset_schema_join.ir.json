@@ -1,0 +1,130 @@
+{
+  "dependency_rules": [],
+  "depends_on": [],
+  "description": "",
+  "edges": [
+    {
+      "from": "left_1",
+      "to": "merge_1"
+    },
+    {
+      "from": "right_1",
+      "to": "merge_1"
+    }
+  ],
+  "enabled": true,
+  "hooks": {},
+  "ir_version": "2.0",
+  "name": "Dataset Schema Join",
+  "nodes": [
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "_schema_hint": "api_response",
+        "method": "GET",
+        "response": "dataset",
+        "schema": {
+          "additional_columns": "closed",
+          "columns": [
+            {
+              "name": "id",
+              "type": {
+                "kind": "int64"
+              }
+            },
+            {
+              "name": "name",
+              "type": {
+                "kind": "string"
+              }
+            }
+          ],
+          "contract": "brokoli.dataset-schema/v1"
+        },
+        "url": "https://example.test/left"
+      },
+      "id": "left_1",
+      "name": "Left",
+      "type": "source_api"
+    },
+    {
+      "capabilities": [
+        "compute"
+      ],
+      "config": {
+        "collision_policy": "alias",
+        "join_type": "inner",
+        "left_key": "id",
+        "right_alias": "right_row",
+        "right_key": "id",
+        "schema": {
+          "additional_columns": "closed",
+          "columns": [
+            {
+              "name": "id",
+              "type": {
+                "kind": "int64"
+              }
+            },
+            {
+              "name": "name",
+              "type": {
+                "kind": "string"
+              }
+            },
+            {
+              "name": "right_row_name",
+              "type": {
+                "kind": "string"
+              }
+            }
+          ],
+          "contract": "brokoli.dataset-schema/v1"
+        }
+      },
+      "id": "merge_1",
+      "name": "Merge",
+      "type": "join"
+    },
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "_schema_hint": "api_response",
+        "method": "GET",
+        "response": "dataset",
+        "schema": {
+          "additional_columns": "closed",
+          "columns": [
+            {
+              "name": "id",
+              "type": {
+                "kind": "int64"
+              }
+            },
+            {
+              "name": "name",
+              "type": {
+                "kind": "string"
+              }
+            }
+          ],
+          "contract": "brokoli.dataset-schema/v1"
+        },
+        "url": "https://example.test/right"
+      },
+      "id": "right_1",
+      "name": "Right",
+      "type": "source_api"
+    }
+  ],
+  "params": {},
+  "pipeline_id": "dataset-schema-join",
+  "schedule": "",
+  "tags": []
+}

@@ -1,0 +1,61 @@
+{
+  "catchup": true,
+  "dependency_rules": [],
+  "depends_on": [
+    "upstream-etl"
+  ],
+  "description": "",
+  "edges": [
+    {
+      "from": "read_1",
+      "to": "slice_1"
+    }
+  ],
+  "enabled": true,
+  "hooks": {
+    "on_failure": {
+      "enabled": true,
+      "type": "webhook",
+      "url": "https://hooks.example/oncall"
+    }
+  },
+  "ir_version": "2.0",
+  "name": "Hourly Slices",
+  "nodes": [
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/in.csv"
+      },
+      "id": "read_1",
+      "name": "Read",
+      "type": "source_file"
+    },
+    {
+      "capabilities": [
+        "sink"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/slice-${interval.start}.csv"
+      },
+      "id": "slice_1",
+      "name": "Slice",
+      "type": "sink_file"
+    }
+  ],
+  "params": {},
+  "pipeline_id": "hourly-slices",
+  "schedule": "0 * * * *",
+  "schedule_timezone": "Africa/Maputo",
+  "sla_deadline": "07:30",
+  "sla_timezone": "Africa/Maputo",
+  "tags": [
+    "intervals"
+  ],
+  "webhook_token": ""
+}

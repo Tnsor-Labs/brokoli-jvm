@@ -1,0 +1,119 @@
+{
+  "dependency_rules": [],
+  "depends_on": [],
+  "description": "",
+  "edges": [
+    {
+      "from": "customers_1",
+      "to": "orders_1"
+    },
+    {
+      "from": "customers_1",
+      "to": "profile_1"
+    },
+    {
+      "from": "customers_1",
+      "to": "pair_1"
+    },
+    {
+      "from": "regions_1",
+      "to": "pair_1"
+    }
+  ],
+  "enabled": true,
+  "hooks": {},
+  "ir_version": "2.0",
+  "name": "Node map",
+  "nodes": [
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "_schema_hint": "query_result",
+        "conn_id": "shop",
+        "query": "SELECT id, region FROM customers"
+      },
+      "id": "customers_1",
+      "name": "Customers",
+      "type": "source_db"
+    },
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "_schema_hint": "query_result",
+        "conn_id": "shop",
+        "map": {
+          "key": "id",
+          "max_items": 500,
+          "max_parallel": 8,
+          "on_item_failure": "continue",
+          "over": "customers_1"
+        },
+        "query": "SELECT * FROM orders WHERE customer_id = ${item.id}"
+      },
+      "id": "orders_1",
+      "name": "Orders",
+      "type": "source_db"
+    },
+    {
+      "capabilities": [
+        "compute"
+      ],
+      "config": {
+        "language": "python",
+        "map": {
+          "on_item_failure": "skip",
+          "over": {
+            "customer": "customers_1",
+            "region": "regions_1"
+          }
+        },
+        "script": "output_data = {'columns': columns, 'rows': rows}"
+      },
+      "id": "pair_1",
+      "name": "Pair",
+      "type": "code"
+    },
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "_schema_hint": "api_response",
+        "map": {
+          "over": "customers_1"
+        },
+        "method": "GET",
+        "response": "dataset",
+        "url": "https://api.example.com/customers/${item.id}"
+      },
+      "id": "profile_1",
+      "name": "Profile",
+      "type": "source_api"
+    },
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "_schema_hint": "query_result",
+        "conn_id": "shop",
+        "query": "SELECT region FROM regions"
+      },
+      "id": "regions_1",
+      "name": "Regions",
+      "type": "source_db"
+    }
+  ],
+  "params": {},
+  "pipeline_id": "node-map",
+  "schedule": "",
+  "tags": []
+}
