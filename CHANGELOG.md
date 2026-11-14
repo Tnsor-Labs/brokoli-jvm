@@ -9,6 +9,14 @@ Every entry names its owner.
 
 ## [Unreleased]
 
+### Fixed
+
+- **One edge for an input given twice** -- @DarzVadckawy. A node whose
+  input is given twice, such as `p.task(Scores.class, "score", rows, rows)`,
+  gets one edge from it, as the Python SDK's `_add_edge` and the TypeScript
+  SDK's `edge` write it. Before, the pipeline had the same edge twice, so
+  its IR and digest differed from the Python SDK's.
+
 ### Added
 
 - **Pipeline builder** -- @DarzVadckawy. `brokoli-pipeline`'s `Pipeline`

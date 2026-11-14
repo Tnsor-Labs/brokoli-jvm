@@ -111,6 +111,17 @@ class TaskNodeTest {
     }
 
     @Test
+    void drawsOneEdgeFromAnInputGivenTwiceAsThePythonSdkDoes() {
+        Pipeline p = Pipeline.builder("Scores").project(project).build();
+        DatasetRef rows = p.sourceFile("Read", SourceFile.options().path("/data/rows.json").format("json"));
+
+        p.task(TaskNodeTest.class, "score", rows, rows);
+
+        assertThat(JSON.readTree(p.toJson()).path("edges")).isEqualTo(JSON.readTree("""
+                [{"from":"read_1","to":"score_1"}]"""));
+    }
+
+    @Test
     void refusesAMethodTheTaskProjectHasNoTaskFor() {
         Pipeline p = Pipeline.builder("Scores").project(project).build();
 

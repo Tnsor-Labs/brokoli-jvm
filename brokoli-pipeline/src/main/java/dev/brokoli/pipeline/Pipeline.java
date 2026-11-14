@@ -229,10 +229,7 @@ public final class Pipeline {
         Objects.requireNonNull(to, "target");
         requireOwn(from);
         requireOwn(to);
-        Edge edge = new Edge(from.nodeId(), to.nodeId());
-        if (!edges.contains(edge)) {
-            edges.add(edge);
-        }
+        addEdge(from.nodeId(), to.nodeId());
     }
 
     private DatasetRef transform(String name, List<NodeRef> inputs, Transform options) {
@@ -257,8 +254,15 @@ public final class Pipeline {
         inputs.forEach(this::requireOwn);
         String id = allocateId(nodeName);
         nodes.put(id, new Node(id, type, nodeName, config, Capabilities.of(type), nodeInterface));
-        inputs.forEach(input -> edges.add(new Edge(input.nodeId(), id)));
+        inputs.forEach(input -> addEdge(input.nodeId(), id));
         return id;
+    }
+
+    private void addEdge(String from, String to) {
+        Edge edge = new Edge(from, to);
+        if (!edges.contains(edge)) {
+            edges.add(edge);
+        }
     }
 
     private String allocateId(String nodeName) {
