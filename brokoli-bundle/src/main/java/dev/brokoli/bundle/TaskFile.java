@@ -22,6 +22,7 @@ final class TaskFile {
     private static final String ENTRYPOINT = "entrypoint";
     private static final String NAME = "name";
     private static final String INTERFACE = "interface";
+    private static final String PARAMETERS = "parameters";
     private static final char ENTRYPOINT_SEPARATOR = '#';
 
     static final JsonMapper JSON = JsonMapper.builder()
@@ -59,13 +60,21 @@ final class TaskFile {
             throw new BundleException("task " + owner + "." + method + " in " + path + " has entrypoint \""
                     + entrypoint + "\", expected Class#method");
         }
-        JsonNode nodeInterface = task.path(INTERFACE);
-        if (!nodeInterface.isObject() && !nodeInterface.isNull()) {
-            throw new BundleException("task " + owner + "." + method + " in " + path
-                    + " has an interface that is neither an object nor null");
-        }
         return new TaskEntry(owner, method, entrypoint.substring(0, separator), entrypoint.substring(separator + 1),
-                text(path, task, NAME), nodeInterface.isNull() ? null : nodeInterface);
+                text(path, task, NAME), objectOrNull(path, owner, method, task, INTERFACE),
+                objectOrNull(path, owner, method, task, PARAMETERS));
+    }
+
+    private static JsonNode objectOrNull(String path, String owner, String method, JsonNode task, String key) {
+        JsonNode value = task.path(key);
+        if (value.isNull()) {
+            return null;
+        }
+        if (!value.isObject()) {
+            throw new BundleException("task " + owner + "." + method + " in " + path + " has an \"" + key
+                    + "\" that is neither an object nor null");
+        }
+        return value;
     }
 
     private static JsonNode parse(String path, byte[] body) {
@@ -90,7 +99,7 @@ final class TaskFile {
     }
 
     record TaskEntry(String owner, String method, String module, String symbol, String name,
-            JsonNode nodeInterface) {
+            JsonNode nodeInterface, JsonNode parameters) {
 
         TaskEntry {
             Objects.requireNonNull(owner, "owner");

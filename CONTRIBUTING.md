@@ -28,7 +28,7 @@ The pipeline builder is checked against the Python SDK, the reference core's `ir
 
 ## The end-to-end test
 
-The invoker IT `run-on-core` in `brokoli-maven-plugin` builds a task project with the plugin, uploads the bundle to a core server, runs a pipeline that reads two rows into the task, and checks the rows the task returns. CI runs it on every JDK, against the core release named by `CORE_VERSION` in `.github/workflows/ci.yml`, after checking the archive against `CORE_SHA256`. A plain `./mvnw verify` leaves it out, because it needs a running server. To run it, start a core release with `brokoli serve --api-key <key>` from a folder outside the checkout, since core writes its data where it runs. It listens on port 8080. Then:
+The invoker IT `run-on-core` in `brokoli-maven-plugin` builds a task project with the plugin. It then builds a pipeline with `brokoli-pipeline` that reads two rows into the task, and checks that the pipeline packaged the task into the same bundle as the plugin. It uploads that bundle and the pipeline to a core server, runs the pipeline, and checks the rows the task returns. CI runs it on every JDK, against the core release named by `CORE_VERSION` in `.github/workflows/ci.yml`, after checking the archive against `CORE_SHA256`. A plain `./mvnw verify` leaves it out, because it needs a running server. To run it, start a core release with `brokoli serve --api-key <key>` from a folder outside the checkout, since core writes its data where it runs. It listens on port 8080. Then:
 
 ```sh
 BROKOLI_E2E_SERVER=http://127.0.0.1:8080 BROKOLI_E2E_API_KEY=<key> ./mvnw verify '-Dinvoker.test=*'

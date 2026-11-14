@@ -1,5 +1,8 @@
 package dev.brokoli.bundle;
 
+import dev.brokoli.bundle.internal.CanonicalJson;
+import dev.brokoli.bundle.internal.Digests;
+import dev.brokoli.bundle.internal.Utf8;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;

@@ -1,5 +1,7 @@
 package dev.brokoli.bundle;
 
+import dev.brokoli.bundle.internal.Utf8;
+
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;

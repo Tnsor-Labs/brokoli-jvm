@@ -3,19 +3,28 @@ package dev.brokoli.bundle;
 import dev.brokoli.bundle.Manifest.FileEntry;
 import dev.brokoli.bundle.Manifest.Payload;
 import dev.brokoli.bundle.TaskFile.TaskEntry;
+import dev.brokoli.bundle.internal.Digests;
+import tools.jackson.databind.JsonNode;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * The task-bundle/v2 archive of one task, ready to be written. Writing the same project twice gives the same
  * bytes.
  */
 public final class TaskBundle {
+
+    /**
+     * The bundle format, {@code "brokoli.task-bundle/v2"}: the manifest's {@code format}, and the {@code format}
+     * a {@code task} node's {@code task_bundle} names.
+     */
+    public static final String FORMAT = "brokoli.task-bundle/v2";
 
     private final TaskEntry task;
     private final List<BundleFile> files;
@@ -87,6 +96,40 @@ public final class TaskBundle {
     }
 
     /**
+     * The task interface the task file declares for the task, which a {@code task} node carries as its
+     * {@code interface}.
+     *
+     * @return a copy of the interface, or empty when the task declares no row types
+     */
+    public Optional<JsonNode> nodeInterface() {
+        return Optional.ofNullable(task.nodeInterface()).map(JsonNode::deepCopy);
+    }
+
+    /**
+     * The pipeline parameters the task file declares for the task, keyed by name, which a pipeline with the task
+     * carries as its {@code parameters}.
+     *
+     * @return a copy of the parameters, or empty when the task takes none
+     */
+    public Optional<JsonNode> parameters() {
+        return Optional.ofNullable(task.parameters()).map(JsonNode::deepCopy);
+    }
+
+    /**
+     * The bundle's digest, the same one {@link #writeTo(OutputStream)} returns.
+     *
+     * @return {@code sha256:} and the SHA-256 of the archive's bytes, which a {@code task} node uses to reference
+     *         the bundle
+     */
+    public String digest() {
+        try {
+            return writeTo(OutputStream.nullOutputStream());
+        } catch (IOException unwritable) {
+            throw new UncheckedIOException(unwritable);
+        }
+    }
+
+    /**
      * Writes the archive, a gzip-compressed tar, and leaves the stream open.
      *
      * @param out where to write the archive
@@ -97,6 +140,6 @@ public final class TaskBundle {
     public String writeTo(OutputStream out) throws IOException {
         MessageDigest digest = Digests.sha256();
         BundleArchive.write(files, manifest, new DigestOutputStream(out, digest));
-        return Digests.PREFIX + HexFormat.of().formatHex(digest.digest());
+        return Digests.digest(digest);
     }
 }

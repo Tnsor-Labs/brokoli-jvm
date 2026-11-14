@@ -14,3 +14,4 @@ The format and the rules are core's, see its [ADR README](https://github.com/Tns
 | [JVM-ADR-002](./002-task-processor.md) | The task processor and its task file | Accepted |
 | [JVM-ADR-003](./003-generated-entry-method.md) | The generated entry method | Accepted |
 | [JVM-ADR-004](./004-bundle-plugin.md) | The bundle plugin | Proposed |
+| [JVM-ADR-005](./005-pipeline-builder.md) | The pipeline builder | Proposed |

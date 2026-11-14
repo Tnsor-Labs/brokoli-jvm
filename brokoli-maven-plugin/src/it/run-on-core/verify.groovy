@@ -1,3 +1,6 @@
+import dev.brokoli.pipeline.Pipeline
+import dev.brokoli.pipeline.SourceFile
+import dev.brokoli.pipeline.TaskProject
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 
@@ -30,31 +33,33 @@ def post = { String path, Object body ->
     send('POST', path, HttpRequest.BodyPublishers.ofString(JsonOutput.toJson(body)), 'application/json')
 }
 
-def archive = new File(basedir, 'target/run-on-core-1.0-scale.tar.gz').bytes
-def digest = 'sha256:' + MessageDigest.getInstance('SHA-256').digest(archive).encodeHex()
-def stored = send('POST', "/api/task-bundles-v2/${digest}", HttpRequest.BodyPublishers.ofByteArray(archive),
-        'application/octet-stream')
-assert stored.digest == digest
-
-def taskFile = json.parse(new File(basedir, 'target/classes/META-INF/brokoli/tasks/com.example.readings.Readings.json'))
-def task = taskFile.tasks.find { it.method == 'scale' }
-assert task : "the task file has no task scale: ${taskFile}"
+def classes = new File(basedir, 'target/classes')
+def taskJars = new File(localRepositoryPath, 'dev/brokoli/brokoli-task').listFiles().findAll { it.isDirectory() }
+        .collectMany { version -> version.listFiles().findAll { it.name == "brokoli-task-${version.name}.jar" } }
+assert taskJars.size() == 1 : "expected one brokoli-task jar under ${localRepositoryPath}, found ${taskJars}"
+def tasks = new URLClassLoader([classes.toURI().toURL()] as URL[], getClass().classLoader)
 
 def readings = File.createTempFile('readings', '.json')
 readings.deleteOnExit()
 readings.text = JsonOutput.toJson([[sensor: 'north', count: 3], [sensor: 'south', count: 5]])
 
-def pipeline = post('/api/pipelines', [
-        name      : "JVM SDK end to end ${UUID.randomUUID()}",
-        parameters: task.parameters,
-        nodes     : [
-                [id    : 'read', type: 'source_file', name: 'Read readings',
-                 config: [path: readings.absolutePath, format: 'json']],
-                [id    : 'scale', type: 'task', name: task.name,
-                 config: [task_bundle: [digest: digest, format: 'brokoli.task-bundle/v2']], interface: task.interface],
-        ],
-        edges     : [[from: 'read', to: 'scale']],
-])
+def built = Pipeline.builder("JVM SDK end to end ${UUID.randomUUID()}")
+        .project(TaskProject.of(classes.toPath(), [taskJars[0].toPath()]))
+        .build()
+def scale = built.sourceFile('Read readings', SourceFile.options().path(readings.absolutePath).format('json'))
+        .then(built.task(tasks.loadClass('com.example.readings.Readings'), 'scale'))
+
+def pluginArchive = new File(basedir, 'target/run-on-core-1.0-scale.tar.gz').bytes
+def pluginDigest = 'sha256:' + MessageDigest.getInstance('SHA-256').digest(pluginArchive).encodeHex()
+assert built.taskBundles().size() == 1 : "the pipeline references ${built.taskBundles().size()} bundles, expected 1"
+def archive = new ByteArrayOutputStream()
+def digest = built.taskBundles()[0].writeTo(archive)
+assert digest == pluginDigest : "the pipeline packaged scale as ${digest}, but the plugin's bundle is ${pluginDigest}"
+def stored = send('POST', "/api/task-bundles-v2/${digest}",
+        HttpRequest.BodyPublishers.ofByteArray(archive.toByteArray()), 'application/octet-stream')
+assert stored.digest == digest
+
+def pipeline = send('POST', '/api/pipelines', HttpRequest.BodyPublishers.ofString(built.toJson()), 'application/json')
 
 def run = post("/api/pipelines/${pipeline.id}/run", [parameters: [factor: 3]])
 def finished = ['success', 'failed', 'cancelled']
@@ -69,7 +74,7 @@ assert detail.status in finished : "run ${run.id} did not finish within ${waitSe
 assert detail.status == 'success' : "run ${run.id} ended ${detail.status}: ${detail.error}"
 assert detail.parameters == [factor: 3]
 
-def result = get("/api/runs/${run.id}/nodes/scale/preview")
+def result = get("/api/runs/${run.id}/nodes/${scale.nodeId()}/preview")
 assert result.rows == [[sensor: 'north', count: 9, unit: 'kWh'], [sensor: 'south', count: 15, unit: 'kWh']]
 
 true

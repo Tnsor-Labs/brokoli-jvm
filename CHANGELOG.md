@@ -11,6 +11,20 @@ Every entry names its owner.
 
 ### Added
 
+- **Pipeline builder** -- @DarzVadckawy. `brokoli-pipeline`'s `Pipeline`
+  builds a pipeline with `sourceFile`, `transform`, `sinkFile` and `task`
+  nodes, each taking a record of its options, and draws edges with `then`.
+  `toJson()` is the IR with the keys and values the Python SDK writes,
+  `render()` its canonical rendering and `digest()` its `sha256:`. The
+  `minimal` pipeline of `python-reference/` renders byte for byte as the
+  Python SDK renders it. A `task` node names a `@Task` method by class and
+  method name. The pipeline packages its task project into the same bundles
+  the Maven plugin writes, references the task's bundle by digest, and adds
+  the task's parameters to the pipeline's. The end-to-end test now builds
+  its pipeline this way and uploads the pipeline's own bundle. A
+  `transform` refuses a rule value with no JSON form, naming where it is,
+  and a `rename` without a mapping. `brokoli-bundle`'s `TaskBundle` now
+  gives its digest, interface and parameters.
 - **Python reference** -- @DarzVadckawy. `python-reference/` holds the 13
   pipelines of the cross-SDK differential suite, written with the Python
   SDK, and the canonical rendering and digest the Python SDK gives each,
