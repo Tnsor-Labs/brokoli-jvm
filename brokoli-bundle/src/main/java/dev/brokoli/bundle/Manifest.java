@@ -6,8 +6,6 @@ import java.util.Objects;
 record Manifest(String name, String interfaceDigest, String sourceDigest, String builder, List<Payload> payloads,
         List<FileEntry> files) {
 
-    static final String FORMAT = "brokoli.task-bundle/v2";
-
     Manifest {
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(interfaceDigest, "interfaceDigest");

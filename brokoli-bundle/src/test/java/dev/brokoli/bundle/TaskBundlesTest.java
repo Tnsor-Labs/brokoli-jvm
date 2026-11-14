@@ -1,5 +1,6 @@
 package dev.brokoli.bundle;
 
+import dev.brokoli.bundle.internal.Digests;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

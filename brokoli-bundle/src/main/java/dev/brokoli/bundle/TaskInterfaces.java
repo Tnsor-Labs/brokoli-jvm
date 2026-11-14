@@ -1,5 +1,7 @@
 package dev.brokoli.bundle;
 
+import dev.brokoli.bundle.internal.CanonicalJson;
+import dev.brokoli.bundle.internal.Utf8;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.JsonNodeFactory;
@@ -46,7 +48,7 @@ final class TaskInterfaces {
     }
 
     static String interfaceDigest(JsonNode nodeInterface) {
-        return Digests.digest(Utf8.bytes(CanonicalJson.render(forHashing(withPorts(nodeInterface)))));
+        return CanonicalJson.digest(forHashing(withPorts(nodeInterface)));
     }
 
     static JsonNode forHashing(JsonNode value) {

@@ -56,6 +56,12 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>dev.brokoli</groupId>
+            <artifactId>brokoli-pipeline</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
@@ -92,6 +98,7 @@
                         <pomExclude>run-on-core/pom.xml</pomExclude>
                     </pomExcludes>
                     <postBuildHookScript>verify</postBuildHookScript>
+                    <addTestClassPath>true</addTestClassPath>
                     <streamLogsOnFailures>true</streamLogsOnFailures>
                     <extraArtifacts>
                         <extraArtifact>dev.brokoli:brokoli-task-processor:${project.version}:jar</extraArtifact>

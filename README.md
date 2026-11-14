@@ -10,7 +10,7 @@ It is not usable yet. The design is core's [ADR-036](https://github.com/Tnsor-La
 - `brokoli-task-processor` is the annotation processor. At compile time it checks every `@Task` method and writes its task interface and parameters to `META-INF/brokoli/tasks/<class>.json`. It runs only in the compiler, so it never reaches a task's classpath.
 - `brokoli-bundle` packages a compiled project's tasks into task-bundle/v2 archives, one per task, in the form core's `brokoli bundle jvm` writes.
 - `brokoli-maven-plugin` runs it in a Maven build and attaches the bundles to the project.
-- `brokoli-pipeline` is the authoring side: the pipeline builder and IR emission.
+- `brokoli-pipeline` is the authoring side: the pipeline builder, which compiles a pipeline to Brokoli IR and packages the tasks its `task` nodes run.
 
 ## Writing a task
 
@@ -75,6 +75,23 @@ The processor leaves `@Task` and `@Default` unclaimed, so other processors still
 ```
 
 `mvn package` then writes `target/<finalName>-<method>.tar.gz` for each task and prints its digest, the `sha256:` a pipeline uses to reference it. Each bundle is attached with the method name as its classifier, so `mvn install` and `mvn deploy` publish it next to the jar. A bundle holds the project's classes and resources, and the jar of every `compile` and `runtime` dependency under `lib/`, `brokoli-task` included. `-Dbrokoli.bundle.skip` skips the goal.
+
+## Building a pipeline
+
+`brokoli-pipeline` has a method on `Pipeline` for each node type, named as in the Python and TypeScript SDKs, each taking a record of the node's options. `then` draws an edge and returns the node it points to:
+
+```java
+Pipeline p = Pipeline.builder("Sensor Readings")
+        .project(TaskProject.of(Path.of("target/classes"), jars))
+        .build();
+DatasetRef rows = p.sourceFile("Read", SourceFile.options().path("/data/readings.json").format("json"));
+NodeRef scaled = rows.then(p.task(Scores.class, "dailyRollup"));
+
+String ir = p.toJson();
+String digest = p.digest();
+```
+
+`task` adds a `task` node for a `@Task` method. The first call packages the project into one bundle per task, as the Maven plugin does, and the node references its task's bundle by digest. `p.taskBundles()` returns the bundles to upload before the pipeline. A node's id is made from its name, so `"Read"` is `read_1`. `p.render()` is the canonical rendering of core's `ir-canonicalization.md`, and `p.digest()` is its `sha256:`. So far the builder has `sourceFile`, `transform`, `sinkFile` and `task`. The other node types come next, one group at a time, each checked against the Python SDK's output in `python-reference/`.
 
 ## How it fits with the rest of Brokoli
 

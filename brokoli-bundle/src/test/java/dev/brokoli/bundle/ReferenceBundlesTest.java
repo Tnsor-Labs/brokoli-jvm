@@ -2,6 +2,7 @@ package dev.brokoli.bundle;
 
 import dev.brokoli.bundle.Manifest.FileEntry;
 import dev.brokoli.bundle.Manifest.Payload;
+import dev.brokoli.bundle.internal.Utf8;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -28,7 +29,7 @@ class ReferenceBundlesTest {
     void writesTheSameTarAsCoresBrokoliBundleJvm(String name) throws IOException {
         List<String> arguments = CoreContract.arguments(name);
         List<BundleFile> files = filesTheCliPackages(arguments);
-        String sourceDigest = Digests.sourceDigest(files);
+        String sourceDigest = BundleFile.sourceDigest(files);
         String[] entrypoint = CoreContract.values(arguments, "--entrypoint").get(0).split("#");
         Manifest manifest = new Manifest(CoreContract.values(arguments, "--name").get(0), sourceDigest, sourceDigest,
                 null, List.of(Payload.jvm(entrypoint[0], entrypoint[1], sourceDigest)),

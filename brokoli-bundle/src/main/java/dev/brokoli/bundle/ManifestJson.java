@@ -2,6 +2,7 @@ package dev.brokoli.bundle;
 
 import dev.brokoli.bundle.Manifest.FileEntry;
 import dev.brokoli.bundle.Manifest.Payload;
+import dev.brokoli.bundle.internal.Utf8;
 
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -25,7 +26,7 @@ final class ManifestJson {
 
     private void manifest(Manifest manifest) {
         json.append('{');
-        field("format", Manifest.FORMAT);
+        field("format", TaskBundle.FORMAT);
         json.append(',');
         field("name", manifest.name());
         json.append(',');

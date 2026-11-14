@@ -45,7 +45,7 @@ public final class TaskBundles {
                     + " annotationProcessorPaths");
         }
         List<BundleFile> files = ProjectFiles.collect(classesDirectory, jars);
-        String sourceDigest = Digests.sourceDigest(files);
+        String sourceDigest = BundleFile.sourceDigest(files);
         List<TaskBundle> bundles = new ArrayList<>();
         for (Path taskFile : taskFiles) {
             String path = ProjectFiles.slashPath(classesDirectory, taskFile);
