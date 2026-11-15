@@ -1,0 +1,48 @@
+{
+  "dependency_rules": [],
+  "depends_on": [],
+  "description": "",
+  "edges": [
+    {
+      "from": "read_1",
+      "to": "write_1"
+    }
+  ],
+  "enabled": true,
+  "hooks": {},
+  "ir_version": "2.0",
+  "name": "Slow Upstream",
+  "nodes": [
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/in.csv",
+        "retry_delay": 1500
+      },
+      "id": "read_1",
+      "name": "Read",
+      "type": "source_file"
+    },
+    {
+      "capabilities": [
+        "sink"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/out.csv",
+        "timeout": 30
+      },
+      "id": "write_1",
+      "name": "Write",
+      "type": "sink_file"
+    }
+  ],
+  "params": {},
+  "pipeline_id": "slow-upstream",
+  "schedule": "",
+  "tags": []
+}

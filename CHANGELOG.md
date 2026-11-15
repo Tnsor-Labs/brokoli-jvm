@@ -19,6 +19,14 @@ Every entry names its owner.
 
 ### Added
 
+- **Local Python reference cases** -- @DarzVadckawy.
+  `python-reference/local/` holds pipelines the differential suite does
+  not cover yet, written with the Python SDK, and what the Python SDK
+  prints for each at the commit in `REFS`: an SLA with no time zone next
+  to a schedule in UTC, a retry delay and a timeout without retries, and
+  a node key equal to the id the next node would get. `check.sh` runs
+  them with the suite's fixtures, so the PR check and the weekly drift
+  job cover them too.
 - **Pipeline settings, node options and `bash`** -- @DarzVadckawy. A
   pipeline takes its schedule and schedule time zone, catch-up, SLA,
   `depends_on`, webhook and its `on_start`, `on_success` and `on_failure`
