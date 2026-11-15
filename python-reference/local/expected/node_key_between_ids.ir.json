@@ -1,0 +1,104 @@
+{
+  "dependency_rules": [],
+  "depends_on": [],
+  "description": "",
+  "edges": [
+    {
+      "from": "read_1",
+      "to": "write_1"
+    },
+    {
+      "from": "read_2",
+      "to": "write_2"
+    },
+    {
+      "from": "read_3",
+      "to": "write_3"
+    }
+  ],
+  "enabled": true,
+  "hooks": {},
+  "ir_version": "2.0",
+  "name": "Three Reads",
+  "nodes": [
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/a.csv"
+      },
+      "id": "read_1",
+      "name": "Read",
+      "type": "source_file"
+    },
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/b.csv"
+      },
+      "id": "read_2",
+      "name": "Read",
+      "type": "source_file"
+    },
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/c.csv"
+      },
+      "id": "read_3",
+      "name": "Read",
+      "type": "source_file"
+    },
+    {
+      "capabilities": [
+        "sink"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/a-out.csv"
+      },
+      "id": "write_1",
+      "name": "Write",
+      "type": "sink_file"
+    },
+    {
+      "capabilities": [
+        "sink"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/b-out.csv"
+      },
+      "id": "write_2",
+      "name": "Write",
+      "type": "sink_file"
+    },
+    {
+      "capabilities": [
+        "sink"
+      ],
+      "config": {
+        "format": "csv",
+        "path": "/data/c-out.csv"
+      },
+      "id": "write_3",
+      "name": "Write",
+      "type": "sink_file"
+    }
+  ],
+  "params": {},
+  "pipeline_id": "three-reads",
+  "schedule": "",
+  "tags": []
+}

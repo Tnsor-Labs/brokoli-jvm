@@ -10,7 +10,7 @@ trap 'rm -rf "$fresh"' EXIT
 "$here/vendor.sh" "$sdk" "$typescript" "$fresh"
 
 status=0
-for directory in fixtures expected; do
+for directory in fixtures expected local/fixtures local/expected; do
     for file in "$fresh/$directory"/*; do
         path="$directory/$(basename "$file")"
         if [ ! -f "$here/$path" ]; then
