@@ -18,7 +18,7 @@ The research behind the API also covered AWS CDK and Pulumi Java, which type eac
 
 ## Decision
 
-`brokoli-pipeline` has a `Pipeline` with one method per node type, named as in the Python and TypeScript SDKs, each taking an immutable options record. An edge is drawn with `NodeRef.then` or by passing the input to the method. The pipeline compiles to Python's keys and values, and normalizes, renders and digests as core's spec says, with Python's ordering. A `task` node names its `@Task` method by class and method name, and the pipeline packages the task from a `TaskProject` through `brokoli-bundle`, as Python packages `@task(package="bundle")`. Times are `java.time` values: a node's timeout and retry delay are a `Duration`, written as the seconds and milliseconds the server reads, and the pipeline's SLA is a `LocalTime` and a `ZoneId`.
+`brokoli-pipeline` has a `Pipeline` with one method per node type, named as in the Python and TypeScript SDKs, each taking an immutable options record. An edge is drawn with `NodeRef.then` or by passing the input to the method. The pipeline compiles to Python's keys and values, and normalizes, renders and digests as core's spec says, with Python's ordering. A `task` node names its `@Task` method by class and method name, and the pipeline packages the task from a `TaskProject` through `brokoli-bundle`, as Python packages `@task(package="bundle")`. Times are `java.time` values: a node's timeout and retry delay are a `Duration`, written as the seconds and milliseconds the server reads, and the pipeline's SLA is a `LocalTime` and a `ZoneId`. The options every node has, a node key, retries, a retry delay and a timeout, come from the `WithNodeOptions` interface, and the pool from `WithPool`, as the TypeScript SDK shares `RetryOptions` and `PoolOption` across its option types. An options record implements one of them and writes only `node(NodeOptions)`; a `transform` implements `WithNodeOptions` alone, because it runs in no pool.
 
 ## Consequences
 
@@ -51,6 +51,8 @@ The research behind the API also covered AWS CDK and Pulumi Java, which type eac
 - **Options as maps,** as the TypeScript SDK's `Config`. They take any key, and a misspelled one reaches the server. Maps stay only where the TypeScript SDK is untyped too: a `transform` rule.
 - **Times as numbers in the Python SDK's units,** an `int` of seconds for a timeout and of milliseconds for a retry delay. Temporal's Java SDK and the AWS SDK for Java v2 take a `Duration` instead, and Error Prone's `PreferJavaTimeOverload` flags an API that takes a number and a unit.
 - **The SLA as one string,** `"07:30 Africa/Maputo"`, as the Python and TypeScript SDKs take it. A wrong time or zone would reach the server.
+- **The node options as their own argument,** as Pulumi Java takes `CustomResourceOptions` next to a resource's args and Temporal's `ActivityOptions` takes `RetryOptions`. No record would need the methods, but one node's options would be split over two objects, where the Python and TypeScript SDKs take them together.
+- **The methods copied into each record.** A copy that rebuilds the record with the wrong field compiles, and every new node type adds five more. Java's own withers for records, JEP 468, are still a candidate.
 
 ## Follow-ups
 

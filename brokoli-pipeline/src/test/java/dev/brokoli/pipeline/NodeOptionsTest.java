@@ -7,6 +7,8 @@ import tools.jackson.databind.json.JsonMapper;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalInt;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -77,6 +79,36 @@ class NodeOptionsTest {
         NodeOptions pooled = NodeOptions.defaults().pool("compute");
 
         assertThatThrownBy(() -> new Transform(List.of(), pooled))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("a transform node runs in no pool, but its options have the pool compute");
+    }
+
+    @Test
+    void replacesTheNodeOptionsOfEachNodeTypeAndKeepsItsOwnOptions() {
+        NodeOptions node = NodeOptions.defaults()
+                .nodeKey("step")
+                .retries(2, Backoff.LINEAR)
+                .timeout(Duration.ofSeconds(5));
+        NodeOptions pooled = node.pool("files");
+        List<Map<String, Object>> rules = List.of(Map.of("type", "deduplicate"));
+
+        assertThat(SourceFile.options().path("/in.csv").format("json").connId("lake").node(pooled))
+                .isEqualTo(new SourceFile("/in.csv", "json", Optional.of("lake"), pooled));
+        assertThat(SinkFile.options().path("/out.csv").compress("gzip").connId("lake").node(pooled))
+                .isEqualTo(new SinkFile("/out.csv", "csv", Optional.of("gzip"), Optional.of("lake"), pooled));
+        assertThat(Bash.options().command("./run.sh").workingDir("/jobs").env(Map.of("A", "1")).maxMemoryMb(64)
+                .maxCpuTime(Duration.ofSeconds(9)).node(pooled))
+                .isEqualTo(new Bash("./run.sh", Optional.of("/jobs"), Map.of("A", "1"), OptionalInt.of(64),
+                        Optional.of(Duration.ofSeconds(9)), pooled));
+        assertThat(Transform.options().rules(rules).node(node)).isEqualTo(new Transform(rules, node));
+    }
+
+    @Test
+    void givesAPoolToEveryNodeTypeButATransform() {
+        assertThat(List.of(SourceFile.class, SinkFile.class, Bash.class))
+                .allSatisfy(type -> assertThat(WithPool.class.isAssignableFrom(type)).isTrue());
+        assertThat(WithPool.class.isAssignableFrom(Transform.class)).isFalse();
+        assertThatThrownBy(() -> Transform.options().node(NodeOptions.defaults().pool("compute")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("a transform node runs in no pool, but its options have the pool compute");
     }

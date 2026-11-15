@@ -19,6 +19,13 @@ Every entry names its owner.
 
 ### Added
 
+- **Shared node options** -- @DarzVadckawy. `WithNodeOptions` gives the
+  options of every node type `nodeKey`, `retries`, `retryDelay` and
+  `timeout`, and `WithPool` adds `pool`, so a new node type gets them by
+  implementing one interface and writing `node(NodeOptions)`. `SourceFile`,
+  `SinkFile` and `Bash` implement `WithPool`, and `Transform` implements
+  `WithNodeOptions` alone, as it runs in no pool. The methods and what they
+  write are unchanged.
 - **Local Python reference cases** -- @DarzVadckawy.
   `python-reference/local/` holds pipelines the differential suite does
   not cover yet, written with the Python SDK, and what the Python SDK

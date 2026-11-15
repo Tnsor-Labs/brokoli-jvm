@@ -1,6 +1,5 @@
 package dev.brokoli.pipeline;
 
-import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -19,7 +18,7 @@ import java.util.Optional;
  * @param node the options every node has
  */
 public record SinkFile(String path, String format, Optional<String> compress, Optional<String> connId,
-        NodeOptions node) {
+        NodeOptions node) implements WithPool<SinkFile> {
 
     private static final String CSV = "csv";
 
@@ -92,68 +91,13 @@ public record SinkFile(String path, String format, Optional<String> compress, Op
     }
 
     /**
-     * These options with a node key, see {@link NodeOptions#nodeKey(String)}.
+     * These options with other options every node has.
      *
-     * @param nodeKey the key, such as {@code "write-report"}
-     * @return the new options
-     * @throws IllegalArgumentException if the key does not match {@code [a-z][a-z0-9_-]{0,63}}
-     */
-    public SinkFile nodeKey(String nodeKey) {
-        return new SinkFile(path, format, compress, connId, node.nodeKey(nodeKey));
-    }
-
-    /**
-     * These options with retries spaced by {@link Backoff#EXPONENTIAL}.
-     *
-     * @param retries how many times the server retries the node after it fails
-     * @return the new options
-     * @throws IllegalArgumentException if the retries are negative
-     */
-    public SinkFile retries(int retries) {
-        return retries(retries, Backoff.EXPONENTIAL);
-    }
-
-    /**
-     * These options with retries spaced by {@code backoff}.
-     *
-     * @param retries how many times the server retries the node after it fails
-     * @param backoff how the server spaces the retries
-     * @return the new options
-     * @throws IllegalArgumentException if the retries are negative
-     */
-    public SinkFile retries(int retries, Backoff backoff) {
-        return new SinkFile(path, format, compress, connId, node.retries(retries, backoff));
-    }
-
-    /**
-     * These options with a delay before the first retry.
-     *
-     * @param retryDelay the delay, a whole number of milliseconds
-     * @return the new options
-     * @throws IllegalArgumentException if the delay is negative or not a whole number of milliseconds
-     */
-    public SinkFile retryDelay(Duration retryDelay) {
-        return new SinkFile(path, format, compress, connId, node.retryDelay(retryDelay));
-    }
-
-    /**
-     * These options with a timeout for one attempt.
-     *
-     * @param timeout the timeout, a whole number of seconds
-     * @return the new options
-     * @throws IllegalArgumentException if the timeout is negative or not a whole number of seconds
-     */
-    public SinkFile timeout(Duration timeout) {
-        return new SinkFile(path, format, compress, connId, node.timeout(timeout));
-    }
-
-    /**
-     * These options with the pool the node runs in.
-     *
-     * @param pool the pool, such as {@code "files"}
+     * @param node the options every node has
      * @return the new options
      */
-    public SinkFile pool(String pool) {
-        return new SinkFile(path, format, compress, connId, node.pool(pool));
+    @Override
+    public SinkFile node(NodeOptions node) {
+        return new SinkFile(path, format, compress, connId, node);
     }
 }

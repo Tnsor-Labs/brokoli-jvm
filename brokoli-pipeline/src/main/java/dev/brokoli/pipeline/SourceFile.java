@@ -1,6 +1,5 @@
 package dev.brokoli.pipeline;
 
-import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -17,7 +16,8 @@ import java.util.Optional;
  * @param connId the connection the file is read through, such as an object store, if set
  * @param node the options every node has
  */
-public record SourceFile(String path, String format, Optional<String> connId, NodeOptions node) {
+public record SourceFile(String path, String format, Optional<String> connId, NodeOptions node)
+        implements WithPool<SourceFile> {
 
     private static final String CSV = "csv";
 
@@ -77,68 +77,13 @@ public record SourceFile(String path, String format, Optional<String> connId, No
     }
 
     /**
-     * These options with a node key, see {@link NodeOptions#nodeKey(String)}.
+     * These options with other options every node has.
      *
-     * @param nodeKey the key, such as {@code "read-sales"}
-     * @return the new options
-     * @throws IllegalArgumentException if the key does not match {@code [a-z][a-z0-9_-]{0,63}}
-     */
-    public SourceFile nodeKey(String nodeKey) {
-        return new SourceFile(path, format, connId, node.nodeKey(nodeKey));
-    }
-
-    /**
-     * These options with retries spaced by {@link Backoff#EXPONENTIAL}.
-     *
-     * @param retries how many times the server retries the node after it fails
-     * @return the new options
-     * @throws IllegalArgumentException if the retries are negative
-     */
-    public SourceFile retries(int retries) {
-        return retries(retries, Backoff.EXPONENTIAL);
-    }
-
-    /**
-     * These options with retries spaced by {@code backoff}.
-     *
-     * @param retries how many times the server retries the node after it fails
-     * @param backoff how the server spaces the retries
-     * @return the new options
-     * @throws IllegalArgumentException if the retries are negative
-     */
-    public SourceFile retries(int retries, Backoff backoff) {
-        return new SourceFile(path, format, connId, node.retries(retries, backoff));
-    }
-
-    /**
-     * These options with a delay before the first retry.
-     *
-     * @param retryDelay the delay, a whole number of milliseconds
-     * @return the new options
-     * @throws IllegalArgumentException if the delay is negative or not a whole number of milliseconds
-     */
-    public SourceFile retryDelay(Duration retryDelay) {
-        return new SourceFile(path, format, connId, node.retryDelay(retryDelay));
-    }
-
-    /**
-     * These options with a timeout for one attempt.
-     *
-     * @param timeout the timeout, a whole number of seconds
-     * @return the new options
-     * @throws IllegalArgumentException if the timeout is negative or not a whole number of seconds
-     */
-    public SourceFile timeout(Duration timeout) {
-        return new SourceFile(path, format, connId, node.timeout(timeout));
-    }
-
-    /**
-     * These options with the pool the node runs in.
-     *
-     * @param pool the pool, such as {@code "files"}
+     * @param node the options every node has
      * @return the new options
      */
-    public SourceFile pool(String pool) {
-        return new SourceFile(path, format, connId, node.pool(pool));
+    @Override
+    public SourceFile node(NodeOptions node) {
+        return new SourceFile(path, format, connId, node);
     }
 }
