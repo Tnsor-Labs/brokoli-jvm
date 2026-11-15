@@ -91,7 +91,26 @@ String ir = p.toJson();
 String digest = p.digest();
 ```
 
-`task` adds a `task` node for a `@Task` method. The first call packages the project into one bundle per task, as the Maven plugin does, and the node references its task's bundle by digest. `p.taskBundles()` returns the bundles to upload before the pipeline. A node's id is made from its name, so `"Read"` is `read_1`. `p.render()` is the canonical rendering of core's `ir-canonicalization.md`, and `p.digest()` is its `sha256:`. So far the builder has `sourceFile`, `transform`, `sinkFile` and `task`. The other node types come next, one group at a time, each checked against the Python SDK's output in `python-reference/`.
+`task` adds a `task` node for a `@Task` method. The first call packages the project into one bundle per task, as the Maven plugin does, and the node references its task's bundle by digest. `p.taskBundles()` returns the bundles to upload before the pipeline. A node's id is made from its name, so `"Read"` is `read_1`. `p.render()` is the canonical rendering of core's `ir-canonicalization.md`, and `p.digest()` is its `sha256:`.
+
+The builder takes the pipeline's schedule, SLA, dependencies, webhook and hooks, and every node takes a node key, retries, a retry delay, a timeout and a pool. Times are `java.time` values, written in the units the server reads: seconds for a timeout, milliseconds for a retry delay.
+
+```java
+Pipeline p = Pipeline.builder("Hourly Slices")
+        .schedule("0 * * * *")
+        .scheduleTimezone(ZoneId.of("Africa/Maputo"))
+        .sla(LocalTime.of(7, 30), ZoneId.of("Africa/Maputo"))
+        .onFailure("https://hooks.example/oncall")
+        .build();
+DatasetRef rows = p.sourceFile("Read", SourceFile.options()
+        .path("/data/in.csv")
+        .retries(3)
+        .retryDelay(Duration.ofSeconds(2))
+        .timeout(Duration.ofMinutes(1)));
+p.bash("Refresh", rows, Bash.options().command("./refresh.sh").nodeKey("refresh"));
+```
+
+So far the builder has `sourceFile`, `transform`, `sinkFile`, `bash` and `task`. The other node types come next, one group at a time, each checked against the Python SDK's output in `python-reference/`.
 
 ## How it fits with the rest of Brokoli
 

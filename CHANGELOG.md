@@ -19,6 +19,20 @@ Every entry names its owner.
 
 ### Added
 
+- **Pipeline settings, node options and `bash`** -- @DarzVadckawy. A
+  pipeline takes its schedule and schedule time zone, catch-up, SLA,
+  `depends_on`, webhook and its `on_start`, `on_success` and `on_failure`
+  hooks, and every node takes a node key, retries with their backoff, a
+  retry delay, a timeout and a pool, as the Python SDK writes them. A
+  timeout and a retry delay are a `Duration`, written as the seconds and
+  milliseconds the server reads, and the SLA is a `LocalTime` and a
+  `ZoneId`. `bash` adds a `bash` node. `sourceFile` and `sinkFile` take a
+  connection, and `sinkFile` a compression. The `options` and `bash`
+  pipelines of `python-reference/` render byte for byte as the Python SDK
+  renders them. The builder refuses a node key the Python SDK refuses or
+  another node already has, catch-up without a schedule, a delay or
+  timeout finer than the server reads, an SLA with seconds, and a time
+  zone that is not an IANA one.
 - **Pipeline builder** -- @DarzVadckawy. `brokoli-pipeline`'s `Pipeline`
   builds a pipeline with `sourceFile`, `transform`, `sinkFile` and `task`
   nodes, each taking a record of its options, and draws edges with `then`.
