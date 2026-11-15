@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -20,33 +21,40 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class PythonReferenceTest {
 
-    private static final Path EXPECTED = Path.of(System.getProperty("brokoli.python-reference", "../python-reference"))
-            .resolve("expected");
+    private static final Path REFERENCE = Path.of(System.getProperty("brokoli.python-reference", "../python-reference"));
+    private static final Path EXPECTED = REFERENCE.resolve("expected");
+    private static final Path LOCAL_EXPECTED = REFERENCE.resolve("local").resolve("expected");
     private static final ZoneId MAPUTO = ZoneId.of("Africa/Maputo");
 
     static Stream<Arguments> fixtures() {
         return Stream.of(
-                Arguments.of("minimal", (Supplier<Pipeline>) PythonReferenceTest::minimal),
-                Arguments.of("options", (Supplier<Pipeline>) PythonReferenceTest::options),
-                Arguments.of("bash", (Supplier<Pipeline>) PythonReferenceTest::bash));
+                Arguments.of("minimal", EXPECTED, (Supplier<Pipeline>) PythonReferenceTest::minimal),
+                Arguments.of("options", EXPECTED, (Supplier<Pipeline>) PythonReferenceTest::options),
+                Arguments.of("bash", EXPECTED, (Supplier<Pipeline>) PythonReferenceTest::bash),
+                Arguments.of("sla_utc", LOCAL_EXPECTED, (Supplier<Pipeline>) PythonReferenceTest::slaUtc),
+                Arguments.of("retry_delay_only", LOCAL_EXPECTED,
+                        (Supplier<Pipeline>) PythonReferenceTest::retryDelayOnly),
+                Arguments.of("node_key_between_ids", LOCAL_EXPECTED,
+                        (Supplier<Pipeline>) PythonReferenceTest::nodeKeyBetweenIds));
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("fixtures")
-    void rendersThePipelineByteForByteAsThePythonSdkDoes(String fixture, Supplier<Pipeline> pipeline)
+    void rendersThePipelineByteForByteAsThePythonSdkDoes(String fixture, Path expected, Supplier<Pipeline> pipeline)
             throws IOException {
-        assertThat(pipeline.get().render()).isEqualTo(expected(fixture + ".ir.json"));
+        assertThat(pipeline.get().render()).isEqualTo(read(expected, fixture + ".ir.json"));
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("fixtures")
-    void digestsThePipelineAsThePythonSdkDoes(String fixture, Supplier<Pipeline> pipeline) throws IOException {
-        assertThat(pipeline.get().digest()).isEqualTo(expected(fixture + ".digest").strip());
+    void digestsThePipelineAsThePythonSdkDoes(String fixture, Path expected, Supplier<Pipeline> pipeline)
+            throws IOException {
+        assertThat(pipeline.get().digest()).isEqualTo(read(expected, fixture + ".digest").strip());
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("fixtures")
-    void compilesIrThatCoresSchemaAccepts(String fixture, Supplier<Pipeline> pipeline) {
+    void compilesIrThatCoresSchemaAccepts(String fixture, Path expected, Supplier<Pipeline> pipeline) {
         assertThat(CoreSchema.pipelineErrors(pipeline.get().toJson())).isEmpty();
     }
 
@@ -97,7 +105,46 @@ class PythonReferenceTest {
         return p;
     }
 
-    private static String expected(String name) throws IOException {
-        return Files.readString(EXPECTED.resolve(name), StandardCharsets.UTF_8);
+    private static Pipeline slaUtc() {
+        Pipeline p = Pipeline.builder("Morning Report")
+                .pipelineId("morning-report")
+                .schedule("0 6 * * *")
+                .scheduleTimezone(ZoneOffset.UTC)
+                .sla(LocalTime.of(6, 5))
+                .build();
+        DatasetRef rows = p.sourceFile("Read", SourceFile.options().path("/data/in.csv").format("csv"));
+        rows.then(p.sinkFile("Write", SinkFile.options().path("/data/out.csv").format("csv")));
+        return p;
+    }
+
+    private static Pipeline retryDelayOnly() {
+        Pipeline p = Pipeline.builder("Slow Upstream").pipelineId("slow-upstream").build();
+        DatasetRef rows = p.sourceFile("Read", SourceFile.options()
+                .path("/data/in.csv")
+                .format("csv")
+                .retryDelay(Duration.ofMillis(1500)));
+        rows.then(p.sinkFile("Write", SinkFile.options()
+                .path("/data/out.csv")
+                .format("csv")
+                .timeout(Duration.ofSeconds(30))));
+        return p;
+    }
+
+    private static Pipeline nodeKeyBetweenIds() {
+        Pipeline p = Pipeline.builder("Three Reads").pipelineId("three-reads").build();
+        DatasetRef first = p.sourceFile("Read", SourceFile.options().path("/data/a.csv").format("csv"));
+        DatasetRef keyed = p.sourceFile("Read", SourceFile.options()
+                .path("/data/b.csv")
+                .format("csv")
+                .nodeKey("read_2"));
+        DatasetRef last = p.sourceFile("Read", SourceFile.options().path("/data/c.csv").format("csv"));
+        first.then(p.sinkFile("Write", SinkFile.options().path("/data/a-out.csv").format("csv")));
+        keyed.then(p.sinkFile("Write", SinkFile.options().path("/data/b-out.csv").format("csv")));
+        last.then(p.sinkFile("Write", SinkFile.options().path("/data/c-out.csv").format("csv")));
+        return p;
+    }
+
+    private static String read(Path directory, String name) throws IOException {
+        return Files.readString(directory.resolve(name), StandardCharsets.UTF_8);
     }
 }

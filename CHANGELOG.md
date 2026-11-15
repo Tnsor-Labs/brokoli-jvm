@@ -26,7 +26,9 @@ Every entry names its owner.
   to a schedule in UTC, a retry delay and a timeout without retries, and
   a node key equal to the id the next node would get. `check.sh` runs
   them with the suite's fixtures, so the PR check and the weekly drift
-  job cover them too.
+  job cover them too. `brokoli-pipeline`'s tests build the three with the
+  pipeline builder and check that each renders and digests byte for byte
+  as the Python SDK does.
 - **Pipeline settings, node options and `bash`** -- @DarzVadckawy. A
   pipeline takes its schedule and schedule time zone, catch-up, SLA,
   `depends_on`, webhook and its `on_start`, `on_success` and `on_failure`
