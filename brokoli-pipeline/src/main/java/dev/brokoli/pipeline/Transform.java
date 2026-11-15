@@ -1,6 +1,5 @@
 package dev.brokoli.pipeline;
 
-import java.time.Duration;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,7 +24,7 @@ import java.util.Objects;
  * @param rules the rules, none unless set
  * @param node the options every node has, with no pool
  */
-public record Transform(List<Map<String, Object>> rules, NodeOptions node) {
+public record Transform(List<Map<String, Object>> rules, NodeOptions node) implements WithNodeOptions<Transform> {
 
     /**
      * Creates the options, with a copy of each rule.
@@ -70,58 +69,14 @@ public record Transform(List<Map<String, Object>> rules, NodeOptions node) {
     }
 
     /**
-     * These options with a node key, see {@link NodeOptions#nodeKey(String)}.
+     * These options with other options every node has.
      *
-     * @param nodeKey the key, such as {@code "clean"}
+     * @param node the options every node has
      * @return the new options
-     * @throws IllegalArgumentException if the key does not match {@code [a-z][a-z0-9_-]{0,63}}
+     * @throws IllegalArgumentException if the node options have a pool
      */
-    public Transform nodeKey(String nodeKey) {
-        return new Transform(rules, node.nodeKey(nodeKey));
-    }
-
-    /**
-     * These options with retries spaced by {@link Backoff#EXPONENTIAL}.
-     *
-     * @param retries how many times the server retries the node after it fails
-     * @return the new options
-     * @throws IllegalArgumentException if the retries are negative
-     */
-    public Transform retries(int retries) {
-        return retries(retries, Backoff.EXPONENTIAL);
-    }
-
-    /**
-     * These options with retries spaced by {@code backoff}.
-     *
-     * @param retries how many times the server retries the node after it fails
-     * @param backoff how the server spaces the retries
-     * @return the new options
-     * @throws IllegalArgumentException if the retries are negative
-     */
-    public Transform retries(int retries, Backoff backoff) {
-        return new Transform(rules, node.retries(retries, backoff));
-    }
-
-    /**
-     * These options with a delay before the first retry.
-     *
-     * @param retryDelay the delay, a whole number of milliseconds
-     * @return the new options
-     * @throws IllegalArgumentException if the delay is negative or not a whole number of milliseconds
-     */
-    public Transform retryDelay(Duration retryDelay) {
-        return new Transform(rules, node.retryDelay(retryDelay));
-    }
-
-    /**
-     * These options with a timeout for one attempt.
-     *
-     * @param timeout the timeout, a whole number of seconds
-     * @return the new options
-     * @throws IllegalArgumentException if the timeout is negative or not a whole number of seconds
-     */
-    public Transform timeout(Duration timeout) {
-        return new Transform(rules, node.timeout(timeout));
+    @Override
+    public Transform node(NodeOptions node) {
+        return new Transform(rules, node);
     }
 }
