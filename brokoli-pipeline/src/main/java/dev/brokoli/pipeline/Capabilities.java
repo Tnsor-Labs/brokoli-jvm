@@ -32,7 +32,7 @@ final class Capabilities {
             entry("project", DATASET_COMPUTE),
             entry("aggregate", DATASET_COMPUTE),
             entry("filter", DATASET_COMPUTE),
-            entry("bash", COMPUTE_ONLY),
+            entry(IrFields.BASH, COMPUTE_ONLY),
             entry("contract_gate", COMPUTE_ONLY),
             entry("wait", DATASET_COMPUTE));
 

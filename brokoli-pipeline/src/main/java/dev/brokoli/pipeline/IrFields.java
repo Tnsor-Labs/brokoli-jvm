@@ -19,6 +19,14 @@ final class IrFields {
     static final String WEBHOOK_URL = "webhook_url";
     static final String WEBHOOK_TOKEN = "webhook_token";
     static final String SCHEDULE_TIMEZONE = "schedule_timezone";
+    static final String CATCHUP = "catchup";
+    static final String SLA_DEADLINE = "sla_deadline";
+    static final String SLA_TIMEZONE = "sla_timezone";
+    static final String ON_START = "on_start";
+    static final String ON_SUCCESS = "on_success";
+    static final String ON_FAILURE = "on_failure";
+    static final String URL = "url";
+    static final String EXTRA = "extra";
 
     static final String ID = "id";
     static final String TYPE = "type";
@@ -35,10 +43,23 @@ final class IrFields {
     static final String RULES = "rules";
     static final String TASK_BUNDLE = "task_bundle";
     static final String DIGEST = "digest";
+    static final String CONN_ID = "conn_id";
+    static final String COMPRESS = "compress";
+    static final String COMMAND = "command";
+    static final String WORKING_DIR = "working_dir";
+    static final String ENV = "env";
+    static final String MAX_MEMORY_MB = "max_memory_mb";
+    static final String MAX_CPU_SECONDS = "max_cpu_seconds";
+    static final String MAX_RETRIES = "max_retries";
+    static final String RETRY_BACKOFF = "retry_backoff";
+    static final String RETRY_DELAY = "retry_delay";
+    static final String TIMEOUT = "timeout";
+    static final String POOL = "pool";
 
     static final String SOURCE_FILE = "source_file";
     static final String TRANSFORM = "transform";
     static final String SINK_FILE = "sink_file";
+    static final String BASH = "bash";
     static final String TASK = "task";
 
     private IrFields() {

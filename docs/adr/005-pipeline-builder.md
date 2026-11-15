@@ -18,7 +18,7 @@ The research behind the API also covered AWS CDK and Pulumi Java, which type eac
 
 ## Decision
 
-`brokoli-pipeline` has a `Pipeline` with one method per node type, named as in the Python and TypeScript SDKs, each taking an immutable options record. An edge is drawn with `NodeRef.then` or by passing the input to the method. The pipeline compiles to Python's keys and values, and normalizes, renders and digests as core's spec says, with Python's ordering. A `task` node names its `@Task` method by class and method name, and the pipeline packages the task from a `TaskProject` through `brokoli-bundle`, as Python packages `@task(package="bundle")`.
+`brokoli-pipeline` has a `Pipeline` with one method per node type, named as in the Python and TypeScript SDKs, each taking an immutable options record. An edge is drawn with `NodeRef.then` or by passing the input to the method. The pipeline compiles to Python's keys and values, and normalizes, renders and digests as core's spec says, with Python's ordering. A `task` node names its `@Task` method by class and method name, and the pipeline packages the task from a `TaskProject` through `brokoli-bundle`, as Python packages `@task(package="bundle")`. Times are `java.time` values: a node's timeout and retry delay are a `Duration`, written as the seconds and milliseconds the server reads, and the pipeline's SLA is a `LocalTime` and a `ZoneId`.
 
 ## Consequences
 
@@ -28,6 +28,7 @@ The research behind the API also covered AWS CDK and Pulumi Java, which type eac
 - A misspelled option is a compile error, and an option a node does not have cannot be written.
 - A pipeline packages its tasks into the same bytes as `brokoli-maven-plugin` of the same version. The end-to-end test checks that the two digests are equal.
 - `taskBundles()` holds every archive the pipeline references, so a deployer uploads exactly those.
+- A retry delay cannot be given in seconds by mistake, which the Python SDK's docs warn about for `retry_delay=1`. A delay or timeout finer than the server reads, and a fixed offset in place of a time zone, are refused while the pipeline is built.
 
 ### Negative
 
@@ -35,11 +36,11 @@ The research behind the API also covered AWS CDK and Pulumi Java, which type eac
 - A task named by its method's name is checked when the pipeline is built, not when it is compiled.
 - The builder sorts as the Python SDK does, and the TypeScript SDK's `normalizeIR` sorts by raw code point. For the tags `daily` and `daily x`, the two SDKs give different digests. This is raised in the PR, for the TypeScript SDK and for the wording of the spec's ordering rule.
 - Node ids follow the JDK's Unicode tables, so a letter added in a Unicode version the JDK does not have yet is dropped from an id where Python keeps it.
+- A time zone is checked against the JDK's time zone data, and core checks it against Go's, so a zone added to one before the other is refused by the builder or by the server.
 
 ### Deferred
 
-- The other node types and the pipeline's schedule, hooks, SLA and webhook. They are added group by group, each checked against the fixtures in `python-reference/`.
-- `node_key`, and the per-node retries, timeout and pool.
+- The other node types. They are added group by group, each checked against the fixtures in `python-reference/`.
 - Deploying: uploading the bundles and creating the pipeline on a server.
 
 ## Alternatives considered
@@ -48,8 +49,10 @@ The research behind the API also covered AWS CDK and Pulumi Java, which type eac
 - **Binding the digest at deploy time.** The builder would write the node without a digest and a later plugin goal would fill it in. Until then the pipeline would have no IR to render or digest.
 - **A generated reference per task,** such as `Readings_BrokoliTasks.scale()`. A misspelled method would fail at compile time, but the generated code ends up in every bundle and would need a type `brokoli-task` does not have.
 - **Options as maps,** as the TypeScript SDK's `Config`. They take any key, and a misspelled one reaches the server. Maps stay only where the TypeScript SDK is untyped too: a `transform` rule.
+- **Times as numbers in the Python SDK's units,** an `int` of seconds for a timeout and of milliseconds for a retry delay. Temporal's Java SDK and the AWS SDK for Java v2 take a `Duration` instead, and Error Prone's `PreferJavaTimeOverload` flags an API that takes a number and a unit.
+- **The SLA as one string,** `"07:30 Africa/Maputo"`, as the Python and TypeScript SDKs take it. A wrong time or zone would reach the server.
 
 ## Follow-ups
 
-- The remaining 12 fixtures in `python-reference/`, node group by node group.
+- The remaining 10 fixtures in `python-reference/`, node group by node group.
 - The ordering difference between the Python and TypeScript SDKs, raised in the PR.

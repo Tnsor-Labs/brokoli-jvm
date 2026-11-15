@@ -9,12 +9,17 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.JsonNodeFactory;
 import tools.jackson.databind.node.ObjectNode;
 
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 
 /**
  * A pipeline being built, which compiles to Brokoli's pipeline IR. Each node is added by the method named after
@@ -38,6 +43,8 @@ public final class Pipeline {
     private static final String IR_VERSION = "2.0";
     private static final String TASK_INTERFACE_IR_VERSION = "2.2";
     private static final String SEPARATOR = "_";
+    private static final List<String> HOOK_EVENTS = List.of(IrFields.ON_START, IrFields.ON_SUCCESS,
+            IrFields.ON_FAILURE);
 
     private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
     private static final JsonMapper WRITER = JsonMapper.builder().build();
@@ -45,7 +52,15 @@ public final class Pipeline {
     private final String name;
     private final String pipelineId;
     private final String description;
+    private final String schedule;
+    private final String scheduleTimezone;
+    private final boolean catchUp;
+    private final String slaDeadline;
+    private final String slaTimezone;
     private final List<String> tags;
+    private final List<String> dependsOn;
+    private final boolean webhook;
+    private final Map<String, Hook> hooks;
     private final TaskProject project;
     private final Map<String, Node> nodes = new LinkedHashMap<>();
     private final List<Edge> edges = new ArrayList<>();
@@ -58,7 +73,18 @@ public final class Pipeline {
         this.name = builder.name;
         this.pipelineId = builder.pipelineId.isEmpty() ? NodeIds.pipelineId(builder.name) : builder.pipelineId;
         this.description = builder.description;
+        this.schedule = builder.schedule;
+        this.scheduleTimezone = builder.scheduleTimezone;
+        this.catchUp = builder.catchUp;
+        this.slaDeadline = builder.slaDeadline;
+        this.slaTimezone = builder.slaTimezone;
         this.tags = builder.tags;
+        this.dependsOn = builder.dependsOn;
+        this.webhook = builder.webhook;
+        this.hooks = new LinkedHashMap<>();
+        HOOK_EVENTS.stream()
+                .filter(builder.hooks::containsKey)
+                .forEach(event -> hooks.put(event, builder.hooks.get(event)));
         this.project = builder.project;
     }
 
@@ -77,24 +103,29 @@ public final class Pipeline {
      * Adds a {@code source_file} node, which reads a file.
      *
      * @param name the node's name, such as {@code "Read"}
-     * @param options the file to read and its format
+     * @param options the file to read, its format and the node's options
      * @return the node
+     * @throws PipelineException if the node key is the id of another node of the pipeline
      * @throws NullPointerException if a value is {@code null}
      */
     public DatasetRef sourceFile(String name, SourceFile options) {
         ObjectNode config = JSON.objectNode();
         config.put(IrFields.PATH, options.path());
         config.put(IrFields.FORMAT, options.format());
-        return new DatasetRef(add(IrFields.SOURCE_FILE, name, config, null, List.of()), this);
+        options.connId().ifPresent(connId -> config.put(IrFields.CONN_ID, connId));
+        options.node().writeRetriesAndTimeout(config);
+        options.node().writePool(config);
+        return new DatasetRef(add(IrFields.SOURCE_FILE, name, config, null, List.of(), options.node()), this);
     }
 
     /**
      * Adds a {@code transform} node with no input yet; {@link NodeRef#then(NodeRef)} gives it one.
      *
      * @param name the node's name, such as {@code "Clean"}
-     * @param options the node's rules
+     * @param options the node's rules and options
      * @return the node
-     * @throws PipelineException if a rule has a value with no JSON form, or a {@code rename} rule has no mapping
+     * @throws PipelineException if a rule has a value with no JSON form, a {@code rename} rule has no mapping, or
+     *         the node key is the id of another node of the pipeline
      * @throws NullPointerException if a value is {@code null}
      */
     public DatasetRef transform(String name, Transform options) {
@@ -106,10 +137,10 @@ public final class Pipeline {
      *
      * @param name the node's name, such as {@code "Clean"}
      * @param input the node whose output it reads
-     * @param options the node's rules
+     * @param options the node's rules and options
      * @return the node
-     * @throws PipelineException if the input belongs to another pipeline, a rule has a value with no JSON form, or
-     *         a {@code rename} rule has no mapping
+     * @throws PipelineException if the input belongs to another pipeline, a rule has a value with no JSON form, a
+     *         {@code rename} rule has no mapping, or the node key is the id of another node of the pipeline
      * @throws NullPointerException if a value is {@code null}
      */
     public DatasetRef transform(String name, NodeRef input, Transform options) {
@@ -120,8 +151,9 @@ public final class Pipeline {
      * Adds a {@code sink_file} node with no input yet; {@link NodeRef#then(NodeRef)} gives it one.
      *
      * @param name the node's name, such as {@code "Write"}
-     * @param options the file to write and its format
+     * @param options the file to write, its format and the node's options
      * @return the node
+     * @throws PipelineException if the node key is the id of another node of the pipeline
      * @throws NullPointerException if a value is {@code null}
      */
     public NodeRef sinkFile(String name, SinkFile options) {
@@ -133,13 +165,42 @@ public final class Pipeline {
      *
      * @param name the node's name, such as {@code "Write"}
      * @param input the node whose output it writes
-     * @param options the file to write and its format
+     * @param options the file to write, its format and the node's options
      * @return the node
-     * @throws PipelineException if the input belongs to another pipeline
+     * @throws PipelineException if the input belongs to another pipeline, or the node key is the id of another
+     *         node of the pipeline
      * @throws NullPointerException if a value is {@code null}
      */
     public NodeRef sinkFile(String name, NodeRef input, SinkFile options) {
         return sinkFile(name, List.of(input), options);
+    }
+
+    /**
+     * Adds a {@code bash} node with no input yet; {@link NodeRef#then(NodeRef)} gives it one.
+     *
+     * @param name the node's name, such as {@code "Refresh"}
+     * @param options the command, its environment and limits, and the node's options
+     * @return the node
+     * @throws PipelineException if the node key is the id of another node of the pipeline
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public NodeRef bash(String name, Bash options) {
+        return bash(name, List.of(), options);
+    }
+
+    /**
+     * Adds a {@code bash} node that runs after another node and passes that node's output through.
+     *
+     * @param name the node's name, such as {@code "Refresh"}
+     * @param input the node it runs after
+     * @param options the command, its environment and limits, and the node's options
+     * @return the node
+     * @throws PipelineException if the input belongs to another pipeline, or the node key is the id of another
+     *         node of the pipeline
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public NodeRef bash(String name, NodeRef input, Bash options) {
+        return bash(name, List.of(input), options);
     }
 
     /**
@@ -177,7 +238,8 @@ public final class Pipeline {
         reference.put(IrFields.FORMAT, TaskBundle.FORMAT);
         ObjectNode config = JSON.objectNode();
         config.set(IrFields.TASK_BUNDLE, reference);
-        String id = add(IrFields.TASK, bundle.name(), config, bundle.nodeInterface().orElse(null), from);
+        String id = add(IrFields.TASK, bundle.name(), config, bundle.nodeInterface().orElse(null), from,
+                NodeOptions.defaults());
         parameters.putAll(declared);
         bundles.putIfAbsent(digest, bundle);
         return new NodeRef(id, this);
@@ -238,24 +300,52 @@ public final class Pipeline {
         if (!options.rules().isEmpty()) {
             config.set(IrFields.RULES, TransformRules.parse(name, options.rules()));
         }
-        return new DatasetRef(add(IrFields.TRANSFORM, name, config, null, inputs), this);
+        options.node().writeRetriesAndTimeout(config);
+        return new DatasetRef(add(IrFields.TRANSFORM, name, config, null, inputs, options.node()), this);
     }
 
     private NodeRef sinkFile(String name, List<NodeRef> inputs, SinkFile options) {
         ObjectNode config = JSON.objectNode();
         config.put(IrFields.PATH, options.path());
         config.put(IrFields.FORMAT, options.format());
-        return new NodeRef(add(IrFields.SINK_FILE, name, config, null, inputs), this);
+        options.compress().ifPresent(compress -> config.put(IrFields.COMPRESS, compress));
+        options.connId().ifPresent(connId -> config.put(IrFields.CONN_ID, connId));
+        options.node().writeRetriesAndTimeout(config);
+        options.node().writePool(config);
+        return new NodeRef(add(IrFields.SINK_FILE, name, config, null, inputs, options.node()), this);
+    }
+
+    private NodeRef bash(String name, List<NodeRef> inputs, Bash options) {
+        ObjectNode config = JSON.objectNode();
+        config.put(IrFields.COMMAND, options.command());
+        options.workingDir().ifPresent(workingDir -> config.put(IrFields.WORKING_DIR, workingDir));
+        if (!options.env().isEmpty()) {
+            ObjectNode env = config.putObject(IrFields.ENV);
+            new TreeMap<>(options.env()).forEach(env::put);
+        }
+        options.maxMemoryMb().ifPresent(megabytes -> config.put(IrFields.MAX_MEMORY_MB, megabytes));
+        options.maxCpuTime().ifPresent(cpuTime -> config.put(IrFields.MAX_CPU_SECONDS, cpuTime.toSeconds()));
+        options.node().writeRetriesAndTimeout(config);
+        options.node().writePool(config);
+        return new NodeRef(add(IrFields.BASH, name, config, null, inputs, options.node()), this);
     }
 
     private String add(String type, String nodeName, ObjectNode config, JsonNode nodeInterface,
-            List<NodeRef> inputs) {
+            List<NodeRef> inputs, NodeOptions options) {
         Objects.requireNonNull(nodeName, "name");
         inputs.forEach(this::requireOwn);
-        String id = allocateId(nodeName);
+        String id = options.nodeKey().map(this::requireFreeKey).orElseGet(() -> allocateId(nodeName));
         nodes.put(id, new Node(id, type, nodeName, config, Capabilities.of(type), nodeInterface));
         inputs.forEach(input -> addEdge(input.nodeId(), id));
         return id;
+    }
+
+    private String requireFreeKey(String nodeKey) {
+        if (nodes.containsKey(nodeKey)) {
+            throw new PipelineException("pipeline " + name + " already has a node with the id " + nodeKey
+                    + "; give the node another key");
+        }
+        return nodeKey;
     }
 
     private void addEdge(String from, String to) {
@@ -310,7 +400,7 @@ public final class Pipeline {
         ir.put(IrFields.PIPELINE_ID, pipelineId);
         ir.put(IrFields.NAME, name);
         ir.put(IrFields.DESCRIPTION, description);
-        ir.put(IrFields.SCHEDULE, "");
+        ir.put(IrFields.SCHEDULE, schedule);
         ir.put(IrFields.ENABLED, true);
         ir.put(IrFields.IR_VERSION, usesTaskInterfaces() ? TASK_INTERFACE_IR_VERSION : IR_VERSION);
         ArrayNode nodeList = ir.putArray(IrFields.NODES);
@@ -319,7 +409,25 @@ public final class Pipeline {
         edges.forEach(edge -> edgeList.add(edge.toJson()));
         ArrayNode tagList = ir.putArray(IrFields.TAGS);
         tags.forEach(tagList::add);
-        ir.putArray(IrFields.DEPENDS_ON);
+        ArrayNode dependsOnList = ir.putArray(IrFields.DEPENDS_ON);
+        dependsOn.forEach(dependsOnList::add);
+        if (!scheduleTimezone.isEmpty()) {
+            ir.put(IrFields.SCHEDULE_TIMEZONE, scheduleTimezone);
+        }
+        if (catchUp) {
+            ir.put(IrFields.CATCHUP, true);
+        }
+        if (!slaDeadline.isEmpty()) {
+            ir.put(IrFields.SLA_DEADLINE, slaDeadline);
+            ir.put(IrFields.SLA_TIMEZONE, slaTimezone);
+        }
+        if (!hooks.isEmpty()) {
+            ObjectNode hookMap = ir.putObject(IrFields.HOOKS);
+            hooks.forEach((event, hook) -> hookMap.set(event, hookJson(hook)));
+        }
+        if (webhook) {
+            ir.put(IrFields.WEBHOOK_TOKEN, "");
+        }
         if (!parameters.isEmpty()) {
             ObjectNode parameterMap = ir.putObject(IrFields.PARAMETERS);
             parameters.forEach((parameter, declaration) -> parameterMap.set(parameter, declaration.deepCopy()));
@@ -331,15 +439,37 @@ public final class Pipeline {
         return !parameters.isEmpty() || nodes.values().stream().anyMatch(node -> node.nodeInterface() != null);
     }
 
+    private static ObjectNode hookJson(Hook hook) {
+        ObjectNode json = JSON.objectNode();
+        json.put(IrFields.TYPE, hook.type());
+        json.put(IrFields.URL, hook.url());
+        json.put(IrFields.ENABLED, hook.enabled());
+        if (!hook.extra().isEmpty()) {
+            ObjectNode extra = json.putObject(IrFields.EXTRA);
+            new TreeMap<>(hook.extra()).forEach(extra::put);
+        }
+        return json;
+    }
+
     /**
      * The settings of a pipeline before its first node is added.
      */
     public static final class Builder {
 
+        private static final DateTimeFormatter DEADLINE = DateTimeFormatter.ofPattern("HH:mm");
+
         private final String name;
         private String pipelineId = "";
         private String description = "";
+        private String schedule = "";
+        private String scheduleTimezone = "";
+        private boolean catchUp;
+        private String slaDeadline = "";
+        private String slaTimezone = "";
         private List<String> tags = List.of();
+        private List<String> dependsOn = List.of();
+        private boolean webhook;
+        private final Map<String, Hook> hooks = new LinkedHashMap<>();
         private TaskProject project;
 
         private Builder(String name) {
@@ -385,6 +515,172 @@ public final class Pipeline {
         }
 
         /**
+         * Sets the pipeline's schedule, a cron expression the server runs it on; without one the pipeline runs
+         * only when it is started.
+         *
+         * @param schedule the cron expression, such as {@code "0 * * * *"}
+         * @return this builder
+         * @throws NullPointerException if the schedule is {@code null}
+         */
+        public Builder schedule(String schedule) {
+            this.schedule = Objects.requireNonNull(schedule, "schedule");
+            return this;
+        }
+
+        /**
+         * Sets the time zone the schedule is read in, the server's UTC unless set.
+         *
+         * @param zone the time zone, such as {@code ZoneId.of("Africa/Maputo")}
+         * @return this builder
+         * @throws IllegalArgumentException if the zone is not an IANA time zone, such as a fixed offset other than
+         *         UTC
+         * @throws NullPointerException if the zone is {@code null}
+         */
+        public Builder scheduleTimezone(ZoneId zone) {
+            this.scheduleTimezone = TimeZones.irId("schedule time zone", Objects.requireNonNull(zone, "zone"));
+            return this;
+        }
+
+        /**
+         * Sets whether the server, after downtime, runs the pipeline once for every schedule interval it missed,
+         * oldest first, in place of one run for the last one. Off unless set, and the server must support data
+         * intervals.
+         *
+         * @param catchUp whether missed intervals are run
+         * @return this builder
+         */
+        public Builder catchUp(boolean catchUp) {
+            this.catchUp = catchUp;
+            return this;
+        }
+
+        /**
+         * Sets the time of day, in UTC, by which a run of the pipeline must finish.
+         *
+         * @param deadline the time, in whole minutes, such as {@code LocalTime.of(7, 30)}
+         * @return this builder
+         * @throws IllegalArgumentException if the time has seconds
+         * @throws NullPointerException if the time is {@code null}
+         */
+        public Builder sla(LocalTime deadline) {
+            return sla(deadline, ZoneOffset.UTC);
+        }
+
+        /**
+         * Sets the time of day by which a run of the pipeline must finish.
+         *
+         * @param deadline the time, in whole minutes, such as {@code LocalTime.of(7, 30)}
+         * @param zone the time zone the time is read in, such as {@code ZoneId.of("Africa/Maputo")}
+         * @return this builder
+         * @throws IllegalArgumentException if the time has seconds, or the zone is not an IANA time zone, such as
+         *         a fixed offset other than UTC
+         * @throws NullPointerException if a value is {@code null}
+         */
+        public Builder sla(LocalTime deadline, ZoneId zone) {
+            Objects.requireNonNull(deadline, "deadline");
+            if (deadline.getSecond() != 0 || deadline.getNano() != 0) {
+                throw new IllegalArgumentException("SLA deadline " + deadline
+                        + " has seconds; the server takes hours and minutes");
+            }
+            this.slaTimezone = TimeZones.irId("SLA time zone", Objects.requireNonNull(zone, "zone"));
+            this.slaDeadline = DEADLINE.format(deadline);
+            return this;
+        }
+
+        /**
+         * Sets the pipelines that must succeed before this one runs, none unless set.
+         *
+         * @param pipelineIds the pipelines' ids, such as {@code "upstream-etl"}
+         * @return this builder
+         * @throws NullPointerException if an id is {@code null}
+         */
+        public Builder dependsOn(String... pipelineIds) {
+            this.dependsOn = List.of(pipelineIds);
+            return this;
+        }
+
+        /**
+         * Sets whether the pipeline can be started by a webhook, whose token the server makes when it creates the
+         * pipeline. Off unless set.
+         *
+         * @param webhook whether the pipeline has a webhook
+         * @return this builder
+         */
+        public Builder webhook(boolean webhook) {
+            this.webhook = webhook;
+            return this;
+        }
+
+        /**
+         * Sets the hook the server calls when a run starts.
+         *
+         * @param hook the hook
+         * @return this builder
+         * @throws NullPointerException if the hook is {@code null}
+         */
+        public Builder onStart(Hook hook) {
+            return hook(IrFields.ON_START, hook);
+        }
+
+        /**
+         * Sets the URL the server posts to when a run starts, as {@link Hook#webhook(String)}.
+         *
+         * @param url the URL, such as {@code "https://hooks.example/runs"}
+         * @return this builder
+         * @throws IllegalArgumentException if the URL is empty
+         * @throws NullPointerException if the URL is {@code null}
+         */
+        public Builder onStart(String url) {
+            return onStart(Hook.webhook(url));
+        }
+
+        /**
+         * Sets the hook the server calls when a run succeeds.
+         *
+         * @param hook the hook
+         * @return this builder
+         * @throws NullPointerException if the hook is {@code null}
+         */
+        public Builder onSuccess(Hook hook) {
+            return hook(IrFields.ON_SUCCESS, hook);
+        }
+
+        /**
+         * Sets the URL the server posts to when a run succeeds, as {@link Hook#webhook(String)}.
+         *
+         * @param url the URL, such as {@code "https://hooks.example/runs"}
+         * @return this builder
+         * @throws IllegalArgumentException if the URL is empty
+         * @throws NullPointerException if the URL is {@code null}
+         */
+        public Builder onSuccess(String url) {
+            return onSuccess(Hook.webhook(url));
+        }
+
+        /**
+         * Sets the hook the server calls when a run fails.
+         *
+         * @param hook the hook
+         * @return this builder
+         * @throws NullPointerException if the hook is {@code null}
+         */
+        public Builder onFailure(Hook hook) {
+            return hook(IrFields.ON_FAILURE, hook);
+        }
+
+        /**
+         * Sets the URL the server posts to when a run fails, as {@link Hook#webhook(String)}.
+         *
+         * @param url the URL, such as {@code "https://hooks.example/oncall"}
+         * @return this builder
+         * @throws IllegalArgumentException if the URL is empty
+         * @throws NullPointerException if the URL is {@code null}
+         */
+        public Builder onFailure(String url) {
+            return onFailure(Hook.webhook(url));
+        }
+
+        /**
          * Sets the compiled project whose {@code @Task} methods the pipeline's {@code task} nodes run.
          *
          * @param project the project
@@ -400,9 +696,19 @@ public final class Pipeline {
          * Creates the pipeline, with no nodes yet.
          *
          * @return the pipeline
+         * @throws PipelineException if the pipeline catches up but has no schedule
          */
         public Pipeline build() {
+            if (catchUp && schedule.isEmpty()) {
+                throw new PipelineException("pipeline " + name + " catches up but has no schedule; catch-up runs"
+                        + " the schedule intervals the server missed, so give it a schedule");
+            }
             return new Pipeline(this);
+        }
+
+        private Builder hook(String event, Hook hook) {
+            hooks.put(event, Objects.requireNonNull(hook, "hook"));
+            return this;
         }
     }
 
