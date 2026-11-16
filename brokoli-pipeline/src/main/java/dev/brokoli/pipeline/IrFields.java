@@ -55,8 +55,27 @@ final class IrFields {
     static final String RETRY_DELAY = "retry_delay";
     static final String TIMEOUT = "timeout";
     static final String POOL = "pool";
+    static final String QUERY = "query";
+    static final String URI = "uri";
+    static final String SCHEMA_HINT = "_schema_hint";
+    static final String QUERY_RESULT = "query_result";
+    static final String TABLE = "table";
+    static final String MODE = "mode";
+    static final String KEY_COLUMNS = "key_columns";
+    static final String TRUNCATE = "truncate";
+    static final String CREATE_TABLE = "create_table";
+    static final String TABLE_ENGINE = "table_engine";
+    static final String JOIN_TYPE = "join_type";
+    static final String LEFT_KEY = "left_key";
+    static final String RIGHT_KEY = "right_key";
+    static final String COLLISION_POLICY = "collision_policy";
+    static final String RIGHT_ALIAS = "right_alias";
 
     static final String SOURCE_FILE = "source_file";
+    static final String SOURCE_DB = "source_db";
+    static final String SINK_DB = "sink_db";
+    static final String JOIN = "join";
+    static final String QUALITY_CHECK = "quality_check";
     static final String TRANSFORM = "transform";
     static final String SINK_FILE = "sink_file";
     static final String BASH = "bash";

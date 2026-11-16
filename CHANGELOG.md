@@ -19,6 +19,19 @@ Every entry names its owner.
 
 ### Added
 
+- **Database, join and quality check nodes** -- @DarzVadckawy. `sourceDb`
+  reads the rows a query returns, `join` joins two inputs on a key column of
+  each, `qualityCheck` checks its input against rules given as maps, and
+  `sinkDb` writes its input to a table, each written with the keys, order
+  and values of the Python SDK, including the `_schema_hint` of a
+  `source_db`. A join's type and collision policy and a sink's write mode
+  are enums. `Join.on(left, right)` names a key on each side, and a name
+  holding `=` is read whole. `rightAlias` sets the alias collision policy
+  and `upsert` the upsert mode with its key columns, so an alias policy
+  without an alias, an alias with another policy, and an upsert without key
+  columns cannot be built. The `data` and `join_collision_alias` pipelines
+  of `python-reference/` render byte for byte as the Python SDK renders
+  them.
 - **How we work** -- @DarzVadckawy. Issues open with one of three forms,
   Feature, Bug or Task, which set the issue's type and ask for the
   problem, the approach, what done means and what is out of scope; the

@@ -31,6 +31,9 @@ class PythonReferenceTest {
                 Arguments.of("minimal", EXPECTED, (Supplier<Pipeline>) PythonReferenceTest::minimal),
                 Arguments.of("options", EXPECTED, (Supplier<Pipeline>) PythonReferenceTest::options),
                 Arguments.of("bash", EXPECTED, (Supplier<Pipeline>) PythonReferenceTest::bash),
+                Arguments.of("data", EXPECTED, (Supplier<Pipeline>) PythonReferenceTest::data),
+                Arguments.of("join_collision_alias", EXPECTED,
+                        (Supplier<Pipeline>) PythonReferenceTest::joinCollisionAlias),
                 Arguments.of("sla_utc", LOCAL_EXPECTED, (Supplier<Pipeline>) PythonReferenceTest::slaUtc),
                 Arguments.of("retry_delay_only", LOCAL_EXPECTED,
                         (Supplier<Pipeline>) PythonReferenceTest::retryDelayOnly),
@@ -102,6 +105,31 @@ class PythonReferenceTest {
                 .maxMemoryMb(512)
                 .maxCpuTime(Duration.ofSeconds(300))
                 .nodeKey("refresh-export"));
+        return p;
+    }
+
+    private static Pipeline data() {
+        Pipeline p = Pipeline.builder("Warehouse Load").pipelineId("warehouse-load").build();
+        DatasetRef orders = p.sourceDb("Orders", SourceDb.options().connId("prod_pg").query("SELECT * FROM orders"));
+        DatasetRef users = p.sourceDb("Users", SourceDb.options()
+                .connId("prod_pg")
+                .query("SELECT id, email FROM users"));
+        DatasetRef joined = p.join("Enrich", orders, users, Join.options().on("user_id"));
+        NodeRef gated = joined.then(p.qualityCheck("Gate", QualityCheck.options().rules(List.of(
+                Map.of("rule", "not_null", "column", "email", "on_failure", "block")))));
+        gated.then(p.sinkDb("Load", SinkDb.options().connId("warehouse").table("orders_enriched").upsert("id")));
+        return p;
+    }
+
+    private static Pipeline joinCollisionAlias() {
+        Pipeline p = Pipeline.builder("Join Collision Policy").pipelineId("join-collision-policy").build();
+        DatasetRef left = p.sourceDb("Left", SourceDb.options()
+                .connId("warehouse")
+                .query("SELECT id, name FROM left_table"));
+        DatasetRef right = p.sourceDb("Right", SourceDb.options()
+                .connId("warehouse")
+                .query("SELECT id, name FROM right_table"));
+        p.join("Merge", left, right, Join.options().on("id").rightAlias("right_row"));
         return p;
     }
 

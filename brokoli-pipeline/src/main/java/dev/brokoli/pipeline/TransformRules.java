@@ -1,11 +1,8 @@
 package dev.brokoli.pipeline;
 
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ArrayNode;
-import tools.jackson.databind.node.JsonNodeFactory;
-import tools.jackson.databind.node.ObjectNode;
 
-import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,25 +15,21 @@ final class TransformRules {
     private static final String TO = "to";
     private static final String MAPPING = "mapping";
     private static final Set<String> RENAME_TYPES = Set.of("rename", "rename_columns");
-    private static final String ALLOWED_VALUES = "a rule value is null, a String, a Boolean, an Integer, a Long,"
-            + " a BigInteger, a finite Double, a List, or a Map with String keys";
-
-    private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
 
     private TransformRules() {
     }
 
     static ArrayNode parse(String node, List<Map<String, Object>> rules) {
-        ArrayNode parsed = JSON.arrayNode();
+        String path = IrFields.TRANSFORM + " " + node + ": " + IrFields.RULES;
+        List<Map<String, Object>> shaped = new ArrayList<>();
         for (int i = 0; i < rules.size(); i++) {
-            String path = "transform " + node + ": " + IrFields.RULES + "[" + i + "]";
             Map<String, Object> rule = new LinkedHashMap<>(rules.get(i));
             if (rule.get(TYPE) instanceof String type && RENAME_TYPES.contains(type)) {
-                rename(path, rule);
+                rename(path + "[" + i + "]", rule);
             }
-            parsed.add(json(path, rule));
+            shaped.add(rule);
         }
-        return parsed;
+        return JsonValues.rules(path, shaped);
     }
 
     private static void rename(String path, Map<String, Object> rule) {
@@ -56,50 +49,5 @@ final class TransformRules {
                     + " new column names, such as Map.of(\"type\", \"rename\", \"mapping\", Map.of(\"old_col\","
                     + " \"new_col\"))");
         }
-    }
-
-    private static JsonNode json(String path, Object value) {
-        if (value == null) {
-            return JSON.nullNode();
-        }
-        if (value instanceof String text) {
-            return JSON.stringNode(text);
-        }
-        if (value instanceof Boolean flag) {
-            return JSON.booleanNode(flag);
-        }
-        if (value instanceof Integer || value instanceof Long) {
-            return JSON.numberNode(((Number) value).longValue());
-        }
-        if (value instanceof BigInteger integer) {
-            return JSON.numberNode(integer);
-        }
-        if (value instanceof Double number && Double.isFinite(number)) {
-            return JSON.numberNode(number);
-        }
-        if (value instanceof Map<?, ?> map) {
-            ObjectNode object = JSON.objectNode();
-            for (Map.Entry<?, ?> entry : map.entrySet()) {
-                if (!(entry.getKey() instanceof String key)) {
-                    throw new PipelineException(path + " has the key " + entry.getKey() + " of type "
-                            + className(entry.getKey()) + "; " + ALLOWED_VALUES);
-                }
-                object.set(key, json(path + "." + key, entry.getValue()));
-            }
-            return object;
-        }
-        if (value instanceof List<?> list) {
-            ArrayNode array = JSON.arrayNode();
-            for (int i = 0; i < list.size(); i++) {
-                array.add(json(path + "[" + i + "]", list.get(i)));
-            }
-            return array;
-        }
-        throw new PipelineException(path + " is " + (value instanceof Double ? value : "a " + className(value))
-                + "; " + ALLOWED_VALUES);
-    }
-
-    private static String className(Object value) {
-        return value == null ? "null" : value.getClass().getName();
     }
 }
