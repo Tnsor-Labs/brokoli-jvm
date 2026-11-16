@@ -31,7 +31,8 @@ Every entry names its owner.
   without an alias, an alias with another policy, and an upsert without key
   columns cannot be built. The `data` and `join_collision_alias` pipelines
   of `python-reference/` render byte for byte as the Python SDK renders
-  them.
+  them. `Join`'s Javadoc says it writes no schema yet, where the Python SDK
+  writes the one it derives from two declared input schemas (#43).
 - **How we work** -- @DarzVadckawy. Issues open with one of three forms,
   Feature, Bug or Task, which set the issue's type and ask for the
   problem, the approach, what done means and what is out of scope; the
