@@ -110,7 +110,20 @@ DatasetRef rows = p.sourceFile("Read", SourceFile.options()
 p.bash("Refresh", rows, Bash.options().command("./refresh.sh").nodeKey("refresh"));
 ```
 
-So far the builder has `sourceFile`, `transform`, `sinkFile`, `bash` and `task`. The other node types come next, one group at a time, each checked against the Python SDK's output in `python-reference/`.
+A database source, a join, a quality check and a database sink:
+
+```java
+DatasetRef orders = p.sourceDb("Orders", SourceDb.options().connId("prod_pg").query("SELECT * FROM orders"));
+DatasetRef users = p.sourceDb("Users", SourceDb.options().connId("prod_pg").query("SELECT id, email FROM users"));
+DatasetRef joined = p.join("Enrich", orders, users, Join.options().on("user_id").type(JoinType.LEFT));
+NodeRef gated = joined.then(p.qualityCheck("Gate", QualityCheck.options().rules(List.of(
+        Map.of("rule", "not_null", "column", "email", "on_failure", "block")))));
+gated.then(p.sinkDb("Load", SinkDb.options().connId("warehouse").table("orders_enriched").upsert("id")));
+```
+
+A join type, a collision policy and a write mode are enums, so a misspelled one is a compile error; core runs an unknown join type as an inner join. `rightAlias` sets the alias collision policy and `upsert` the upsert mode, each with the value it needs, so the combinations core refuses cannot be written.
+
+So far the builder has `sourceFile`, `sourceDb`, `transform`, `join`, `qualityCheck`, `sinkFile`, `sinkDb`, `bash` and `task`. The other node types come next, one group at a time, each checked against the Python SDK's output in `python-reference/`.
 
 ## How it fits with the rest of Brokoli
 

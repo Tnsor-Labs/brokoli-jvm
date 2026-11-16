@@ -204,6 +204,108 @@ public final class Pipeline {
     }
 
     /**
+     * Adds a {@code source_db} node, which reads the rows a query returns.
+     *
+     * @param name the node's name, such as {@code "Orders"}
+     * @param options the query, the database it runs on and the node's options
+     * @return the node
+     * @throws PipelineException if the node key is the id of another node of the pipeline
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public DatasetRef sourceDb(String name, SourceDb options) {
+        ObjectNode config = JSON.objectNode();
+        config.put(IrFields.QUERY, options.query());
+        options.connId().ifPresent(connId -> config.put(IrFields.CONN_ID, connId));
+        options.uri().ifPresent(uri -> config.put(IrFields.URI, uri));
+        options.node().writeRetriesAndTimeout(config);
+        options.node().writePool(config);
+        config.put(IrFields.SCHEMA_HINT, IrFields.QUERY_RESULT);
+        return new DatasetRef(add(IrFields.SOURCE_DB, name, config, null, List.of(), options.node()), this);
+    }
+
+    /**
+     * Adds a {@code join} node that joins two nodes' outputs. The edge from the left input is drawn first.
+     *
+     * @param name the node's name, such as {@code "Enrich"}
+     * @param left the node whose output is the left side
+     * @param right the node whose output is the right side
+     * @param options the key columns, the join type, the collision policy and the node's options
+     * @return the node
+     * @throws PipelineException if an input belongs to another pipeline, or the node key is the id of another node
+     *         of the pipeline
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public DatasetRef join(String name, NodeRef left, NodeRef right, Join options) {
+        Objects.requireNonNull(left, "left");
+        Objects.requireNonNull(right, "right");
+        ObjectNode config = JSON.objectNode();
+        config.put(IrFields.JOIN_TYPE, options.type().irValue());
+        config.put(IrFields.LEFT_KEY, options.leftKey());
+        config.put(IrFields.RIGHT_KEY, options.rightKey());
+        config.put(IrFields.COLLISION_POLICY, options.collisionPolicy().irValue());
+        options.rightAlias().ifPresent(alias -> config.put(IrFields.RIGHT_ALIAS, alias));
+        options.node().writeRetriesAndTimeout(config);
+        return new DatasetRef(add(IrFields.JOIN, name, config, null, List.of(left, right), options.node()), this);
+    }
+
+    /**
+     * Adds a {@code quality_check} node with no input yet; {@link NodeRef#then(NodeRef)} gives it one.
+     *
+     * @param name the node's name, such as {@code "Gate"}
+     * @param options the node's rules and options
+     * @return the node
+     * @throws PipelineException if a rule has a value with no JSON form, or the node key is the id of another node
+     *         of the pipeline
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public NodeRef qualityCheck(String name, QualityCheck options) {
+        return qualityCheck(name, List.of(), options);
+    }
+
+    /**
+     * Adds a {@code quality_check} node that checks another node's output.
+     *
+     * @param name the node's name, such as {@code "Gate"}
+     * @param input the node whose output it checks
+     * @param options the node's rules and options
+     * @return the node
+     * @throws PipelineException if the input belongs to another pipeline, a rule has a value with no JSON form, or
+     *         the node key is the id of another node of the pipeline
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public NodeRef qualityCheck(String name, NodeRef input, QualityCheck options) {
+        return qualityCheck(name, List.of(input), options);
+    }
+
+    /**
+     * Adds a {@code sink_db} node with no input yet; {@link NodeRef#then(NodeRef)} gives it one.
+     *
+     * @param name the node's name, such as {@code "Load"}
+     * @param options the table, how it is written, the database and the node's options
+     * @return the node
+     * @throws PipelineException if the node key is the id of another node of the pipeline
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public NodeRef sinkDb(String name, SinkDb options) {
+        return sinkDb(name, List.of(), options);
+    }
+
+    /**
+     * Adds a {@code sink_db} node that writes another node's output.
+     *
+     * @param name the node's name, such as {@code "Load"}
+     * @param input the node whose output it writes
+     * @param options the table, how it is written, the database and the node's options
+     * @return the node
+     * @throws PipelineException if the input belongs to another pipeline, or the node key is the id of another
+     *         node of the pipeline
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public NodeRef sinkDb(String name, NodeRef input, SinkDb options) {
+        return sinkDb(name, List.of(input), options);
+    }
+
+    /**
      * Adds a {@code task} node that runs a {@code @Task} method, named by the task's display name. The first call
      * packages the pipeline's task project into one task-bundle/v2 archive per task, as
      * {@code brokoli-maven-plugin} does; the node references its task's archive by digest, carries the task's
@@ -328,6 +430,34 @@ public final class Pipeline {
         options.node().writeRetriesAndTimeout(config);
         options.node().writePool(config);
         return new NodeRef(add(IrFields.BASH, name, config, null, inputs, options.node()), this);
+    }
+
+    private NodeRef qualityCheck(String name, List<NodeRef> inputs, QualityCheck options) {
+        Objects.requireNonNull(name, "name");
+        ObjectNode config = JSON.objectNode();
+        if (!options.rules().isEmpty()) {
+            config.set(IrFields.RULES, JsonValues.rules(IrFields.QUALITY_CHECK + " " + name + ": " + IrFields.RULES,
+                    options.rules()));
+        }
+        options.node().writeRetriesAndTimeout(config);
+        return new NodeRef(add(IrFields.QUALITY_CHECK, name, config, null, inputs, options.node()), this);
+    }
+
+    private NodeRef sinkDb(String name, List<NodeRef> inputs, SinkDb options) {
+        ObjectNode config = JSON.objectNode();
+        config.put(IrFields.TABLE, options.table());
+        config.put(IrFields.MODE, options.mode().irValue());
+        options.connId().ifPresent(connId -> config.put(IrFields.CONN_ID, connId));
+        options.uri().ifPresent(uri -> config.put(IrFields.URI, uri));
+        if (!options.keyColumns().isEmpty()) {
+            options.keyColumns().forEach(config.putArray(IrFields.KEY_COLUMNS)::add);
+        }
+        options.truncate().ifPresent(truncate -> config.put(IrFields.TRUNCATE, truncate));
+        options.node().writeRetriesAndTimeout(config);
+        options.createTable().ifPresent(createTable -> config.put(IrFields.CREATE_TABLE, createTable));
+        options.tableEngine().ifPresent(engine -> config.put(IrFields.TABLE_ENGINE, engine));
+        options.node().writePool(config);
+        return new NodeRef(add(IrFields.SINK_DB, name, config, null, inputs, options.node()), this);
     }
 
     private String add(String type, String nodeName, ObjectNode config, JsonNode nodeInterface,

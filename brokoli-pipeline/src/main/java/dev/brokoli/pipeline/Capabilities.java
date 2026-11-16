@@ -20,10 +20,10 @@ final class Capabilities {
     private static final Map<String, List<String>> BY_NODE_TYPE = Map.ofEntries(
             entry(IrFields.SOURCE_FILE, DATASET_SOURCE),
             entry("source_api", DATASET_SOURCE),
-            entry("source_db", DATASET_SOURCE),
+            entry(IrFields.SOURCE_DB, DATASET_SOURCE),
             entry("dbt", DATASET_SOURCE),
             entry("migrate", DATASET_SOURCE),
-            entry("sink_db", SINK_ONLY),
+            entry(IrFields.SINK_DB, SINK_ONLY),
             entry(IrFields.SINK_FILE, SINK_ONLY),
             entry("sink_api", SINK_ONLY),
             entry("union", DATASET_COMPUTE),
