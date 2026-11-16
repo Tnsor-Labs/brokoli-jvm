@@ -1,0 +1,72 @@
+name: Bug
+description: The SDK does something wrong, or differs from the Python SDK or core.
+type: Bug
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A defect is a bug once it can be reproduced and the line causing it is named. At triage the issue gets one `area/*` label, a `priority/*` label and a milestone, as [CONTRIBUTING](https://github.com/Tnsor-Labs/brokoli-jvm/blob/develop/CONTRIBUTING.md#issues-and-labels) describes.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What goes wrong, in one or two sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The smallest task, pipeline or build that shows it, and the command you ran.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: What should happen, and what the Python SDK or core does, if it applies.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: What happened, with the full error message or output.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: jdk
+    attributes:
+      label: JDK version
+      description: The first line of `java -version`.
+      placeholder: openjdk version "17.0.20"
+    validations:
+      required: true
+  - type: input
+    id: sdk
+    attributes:
+      label: SDK version
+      description: The version of the `dev.brokoli` artifacts, or the commit of `develop`.
+      placeholder: 0.1.0-SNAPSHOT
+  - type: textarea
+    id: approach
+    attributes:
+      label: Proposed approach
+      description: The cause, if you found it, and how it could be fixed.
+  - type: textarea
+    id: done
+    attributes:
+      label: What done means
+      description: A checklist a reviewer can tick, starting with the test that fails without the fix.
+      value: |
+        - [ ] A test that fails without the fix.
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What this issue leaves for later, so the PR stays one change.

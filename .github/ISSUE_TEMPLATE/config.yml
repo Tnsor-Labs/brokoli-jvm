@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: How we work
+    url: https://github.com/Tnsor-Labs/brokoli-jvm/blob/develop/CONTRIBUTING.md
+    about: Branches, labels, triage and what a PR needs. A question about an open issue goes on that issue.

@@ -19,6 +19,16 @@ Every entry names its owner.
 
 ### Added
 
+- **How we work** -- @DarzVadckawy. Issues open with one of three forms,
+  Feature, Bug or Task, which set the issue's type and ask for the
+  problem, the approach, what done means and what is out of scope; the
+  bug form also asks for the steps, the expected and actual result and
+  the JDK. A blank issue is no longer offered. The PR template has the
+  five sections every PR fills in. CONTRIBUTING now covers setting up
+  JDK 17, 21 and 25, running one test, annotation processing in IntelliJ
+  and VS Code, what each label means, the triage rule, PR size, and why
+  `main` stays the default branch. The forms and the template take effect
+  with the next release, because GitHub reads them from `main`.
 - **Shared node options** -- @DarzVadckawy. `WithNodeOptions` gives the
   options of every node type `nodeKey`, `retries`, `retryDelay` and
   `timeout`, and `WithPool` adds `pool`, so a new node type gets them by
