@@ -1,0 +1,36 @@
+name: Task
+description: Work that changes no behaviour of the SDK, such as docs, build, CI or a refactor.
+type: Task
+body:
+  - type: markdown
+    attributes:
+      value: |
+        At triage the issue gets one `area/*` label, a `priority/*` label and a milestone, as [CONTRIBUTING](https://github.com/Tnsor-Labs/brokoli-jvm/blob/develop/CONTRIBUTING.md#issues-and-labels) describes.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is missing or harder than it needs to be, and where.
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Proposed approach
+      description: What to change, naming the files.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: What done means
+      description: A checklist a reviewer can tick, and how to check each point.
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What this issue leaves for later, so the PR stays one change.

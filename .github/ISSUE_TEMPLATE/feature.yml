@@ -1,0 +1,38 @@
+name: Feature
+description: Something the SDK should do that it does not do yet.
+type: Feature
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Name the analogue first: what the Python SDK, the TypeScript SDK or core already do for the same thing. At triage the issue gets one `area/*` label, a `priority/*` label and a milestone, as [CONTRIBUTING](https://github.com/Tnsor-Labs/brokoli-jvm/blob/develop/CONTRIBUTING.md#issues-and-labels) describes.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What a user cannot do today, and where it shows. Name the class, method, goal or command.
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Proposed approach
+      description: How it could work, with the files of the other SDKs or core it follows.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: What done means
+      description: A checklist a reviewer can tick, including the tests that show it works.
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What this issue leaves for later, so the PR stays one change.

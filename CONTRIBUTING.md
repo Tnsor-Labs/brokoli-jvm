@@ -2,15 +2,70 @@
 
 This repo follows core's [CONTRIBUTING.md](https://github.com/Tnsor-Labs/brokoli/blob/main/CONTRIBUTING.md). What differs, or is specific to this repo, is below.
 
+## Getting set up
+
+You need JDK 17, 21 and 25, because CI builds on all three and a change can pass on one and fail on another. [SDKMAN](https://sdkman.io/) installs them side by side. `sdk list java` shows the identifiers, which change with every update; take the newest Temurin 17, 21 and 25, such as `17.0.21.0+9-tem`:
+
+```sh
+sdk list java
+sdk install java <identifier>
+sdk use java <identifier>
+```
+
+On Windows without WSL, `winget install EclipseAdoptium.Temurin.17.JDK`, and the same for 21 and 25, then set `JAVA_HOME` to the one you build with. Nothing else is needed: the Maven wrapper downloads Maven 3.9.11 and checks its sha256.
+
+```sh
+./mvnw verify
+./mvnw -pl brokoli-task-processor -am test '-Dtest=TypeMapperTest' '-Dsurefire.failIfNoSpecifiedTests=false'
+```
+
+The first builds and tests every module, as CI does, except the end-to-end test, which needs a server (see [below](#the-end-to-end-test)). The second runs one test class; `-am` builds the modules it depends on first, and the last flag lets those modules run no test. On Windows, use `.\mvnw.cmd`, and keep the quotes around each `-D` in PowerShell, which otherwise splits it at the dot.
+
+**IntelliJ IDEA.** Open the root `pom.xml` as a project. IntelliJ takes the annotation processors from each module's `annotationProcessorPaths` and turns on annotation processing for those modules, so `brokoli-benchmarks` gets its generated `<Class>_BrokoliTasks` classes. If they are missing, check Settings, Build, Execution, Deployment, Compiler, Annotation Processors, and reload the Maven project.
+
+**VS Code.** The Extension Pack for Java runs the annotation processors of a Maven project by itself. If a generated class is missing, run `./mvnw compile` once and then the `Java: Clean Java Language Server Workspace` command.
+
+The copies of core's contract and of the Python SDK's output that the tests use are described in [Core's contract](#cores-contract) and [The Python reference](#the-python-reference), with how to take newer ones.
+
 ## Branches
 
 `develop` is where work lands, and `main` only holds releases. Branch from `develop` as `feat/short-description` or `fix/short-description` and open the PR against `develop`. It is squash-merged, so the PR title (Conventional Commits, `feat: ...`, `fix: ...`) becomes the commit on `develop`.
 
 A release is a PR from `develop` to `main`, merged with a merge commit and never squashed, so the two branches don't diverge. The release is then tagged `vX.Y.Z` on `main`.
 
+`main` stays the default branch, so the repo opens on the last release. That has two consequences:
+
+- GitHub acts on `Closes #NN` only in a PR to the default branch, so a PR merged into `develop` closes nothing. Whoever merges it closes its issues by hand.
+- GitHub reads the issue forms and the PR template only from the default branch, so a change to `.github/ISSUE_TEMPLATE/` or `.github/pull_request_template.md` takes effect with the next release.
+
+## Issues and labels
+
+Open an issue with one of the forms: **Feature** for something the SDK does not do yet, **Bug** for something it does wrong or differently from the Python SDK or core, and **Task** for work that changes no behaviour, such as docs, build, CI or a refactor. Each asks for the problem, the proposed approach, what done means as a checklist, and what is out of scope.
+
+At triage every issue gets:
+
+- its type, Task, Bug or Feature, which the form sets;
+- one `area/*` label: `area/task-api` (`brokoli-task`: `@Task`, `@Default`, `Row` and `Rows`), `area/processor` (`brokoli-task-processor`: the task file and the generated entry method), `area/pipeline` (`brokoli-pipeline`: the builder, the IR and bundle packaging), `area/build-ci` (the Maven build, CI and the vendored copies) or `area/docs` (README, CONTRIBUTING, ADRs and templates);
+- one `priority/*` label: `priority/now` (in the current milestone, being worked on), `priority/next` (planned for the next milestone) or `priority/later` (wanted, not scheduled yet);
+- a milestone, one per stage of the plan in #3, each with a due date.
+
+`good first issue` marks an issue a newcomer can take without reading an ADR first: it names the files to change, what done means and how to test it. At least five are kept open. `help wanted` marks work we would like help with at any level.
+
+A PR carries the labels and milestone of its issue, links the issue, and has an assignee.
+
 ## Pull requests
 
-Say why the change is needed and what fails without it, then how you checked it: the commands you ran and what they printed. For a fix, name the test that fails without it. Link the issue (`Closes #NN`) and add an entry under `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md) naming yourself as its owner.
+The PR template has five sections, and every PR fills them in:
+
+- **Why:** what fails or is missing without the change.
+- **What changed:** per module, and the analogue in the Python SDK, the TypeScript SDK or core that it follows.
+- **How it was verified:** the commands you ran and what they printed, the mutation checks, and for a fix the test that fails without it. Say what was not run.
+- **Follow-ups:** each one filed as an issue and linked.
+- **Closes:** `Closes #NN`.
+
+Write each section as a few short paragraphs, not a list of files. The title is in Conventional Commits and at most 72 characters, because it becomes the squash commit on `develop`. Add an entry under `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md) naming yourself as its owner.
+
+Keep a PR to one change a reviewer can read in one sitting. Vendored files and CI changes land in their own PR, ahead of the code that uses them, so the code's PR is checked against copies that are already reviewed.
 
 Commit messages explain why in prose, not as a list of changes. No AI co-authorship on commits, issues or PRs.
 
