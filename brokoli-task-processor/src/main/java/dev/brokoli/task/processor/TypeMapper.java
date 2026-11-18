@@ -58,7 +58,11 @@ final class TypeMapper {
         if (record == null) {
             throw new InvalidTaskException(context + " must be Rows or a List of a record, found " + type, at);
         }
-        return describeRecord(record, context, at, new LinkedHashSet<>());
+        Map<String, Object> row = describeRecord(record, context, at, new LinkedHashSet<>());
+        if (isNullable(((DeclaredType) type).getTypeArguments().get(0))) {
+            row.put(Bptd.NULLABLE, true);
+        }
+        return row;
     }
 
     static boolean isNullable(AnnotatedConstruct... constructs) {
@@ -178,6 +182,10 @@ final class TypeMapper {
             throw new InvalidTaskException(context + " is a Map with " + key
                     + " keys; a Brokoli map has String keys", at);
         }
+        if (isNullable(key)) {
+            throw new InvalidTaskException(context + " is a Map with @Nullable String keys; a Brokoli map's keys"
+                    + " are never null, so remove the annotation from the key", at);
+        }
         Map<String, Object> map = kind(Bptd.MAP);
         map.put(Bptd.KEYS, Bptd.STRING);
         map.put(Bptd.VALUES, map(value, isNullable(value), context + "{}", at, enclosingRecords));
@@ -204,6 +212,11 @@ final class TypeMapper {
     private Map<String, Object> describeRecord(TypeElement record, String context, Element at,
             Set<String> enclosingRecords) {
         requireReachable(record, context, at);
+        if (!record.getTypeParameters().isEmpty()) {
+            throw new InvalidTaskException(context + " is record " + record.getQualifiedName()
+                    + ", which has type parameters; a Brokoli record has no type parameters, so declare one whose"
+                    + " components have concrete types", at);
+        }
         String recordName = record.getQualifiedName().toString();
         if (enclosingRecords.contains(recordName)) {
             throw new InvalidTaskException(context + " makes record " + record.getSimpleName()

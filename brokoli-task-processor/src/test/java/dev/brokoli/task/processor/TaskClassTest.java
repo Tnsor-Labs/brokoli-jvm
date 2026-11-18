@@ -108,6 +108,25 @@ class TaskClassTest {
     }
 
     @Test
+    void aNullableRowIsReadAndWrittenAsNull() {
+        Compilation compilation = compileTasks(output, """
+                public record Reading(String sensor, double value) {
+                }
+
+                @Task
+                public static List<@Nullable Reading> echo(List<@Nullable Reading> input) {
+                    return input;
+                }
+                """);
+
+        Object result = compilation.call(entrypoint(compilation, "echo"), kwargs("""
+                {"input": [{"sensor": "a", "value": 1.5}, null]}"""));
+
+        assertThat(json(result)).isEqualTo(json("""
+                [{"sensor": "a", "value": 1.5}, null]"""));
+    }
+
+    @Test
     void aRecordRoundTripsEveryTypeInTheFormCoreValidates() {
         Compilation compilation = compileTasks(output, RECORDS + """
                 @Task

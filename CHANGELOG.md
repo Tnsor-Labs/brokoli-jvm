@@ -11,6 +11,16 @@ Every entry names its owner.
 
 ### Fixed
 
+- **Nullable map keys, rows and ports, and generic records** -- @DarzVadckawy.
+  The task processor refuses a map with `@Nullable` keys, whose keys a
+  Brokoli map never has, where before it dropped the annotation. A
+  `@Nullable` row type, `List<@Nullable Reading>`, is written as a nullable
+  row, as the Python SDK writes `list[Optional[Reading]]`, where before the
+  row was written as non-null. `@Nullable` input rows and a `@Nullable`
+  result are refused, because the input rows are never null and a task
+  with nothing to return returns no rows. A generic record is refused with
+  a message that names the record and its type parameters, where before it
+  named a type variable as having no Brokoli type.
 - **One edge for an input given twice** -- @DarzVadckawy. A node whose
   input is given twice, such as `p.task(Scores.class, "score", rows, rows)`,
   gets one edge from it, as the Python SDK's `_add_edge` and the TypeScript

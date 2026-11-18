@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import tools.jackson.databind.JsonNode;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -309,6 +310,90 @@ class TypeMapperTest {
                 "@Task method Tasks.raw parameter values is a raw java.util.List; give it its type arguments",
                 "@Task method Tasks.wildcard parameter values is a java.util.List<? extends java.lang.Number>; "
                         + "a Brokoli type needs concrete type arguments, not wildcards or type variables");
+    }
+
+    @Test
+    void refusesANullableMapKeyWhereverTheMapIs() {
+        Compilation compilation = compileTasks(output, """
+                public record Tally(Map<@Nullable String, Long> counts) {
+                }
+
+                @Task
+                public static Rows direct(Rows input, Map<@Nullable String, Long> byRegion) {
+                    return input;
+                }
+
+                @Task
+                public static Rows nested(Rows input, Tally tally) {
+                    return input;
+                }
+                """);
+
+        assertThat(compilation.errors()).containsExactly(
+                "@Task method Tasks.direct parameter byRegion is a Map with @Nullable String keys; a Brokoli map's "
+                        + "keys are never null, so remove the annotation from the key",
+                "@Task method Tasks.nested parameter tally.counts is a Map with @Nullable String keys; a Brokoli "
+                        + "map's keys are never null, so remove the annotation from the key");
+        assertThat(Files.exists(compilation.taskFilePath(TASKS))).isFalse();
+    }
+
+    @Test
+    void writesANullableRowAsTheNullableRecordThePythonSdkWrites() {
+        Compilation compilation = compileTasks(output, """
+                public record Reading(String sensor, double value) {
+                }
+
+                @Task
+                public static List<@Nullable Reading> run(List<@Nullable Reading> input) {
+                    return input;
+                }
+
+                @Task
+                public static List<Reading> plain(List<Reading> input) {
+                    return input;
+                }
+                """);
+
+        assertThat(compilation.errors()).isEmpty();
+        JsonNode nullableRow = json("""
+                {"kind": "record", "fields": [
+                    {"name": "sensor", "type": {"kind": "string"}, "required": true},
+                    {"name": "value", "type": {"kind": "float64"}, "required": true}
+                ], "additional_fields": false, "nullable": true}""");
+        JsonNode run = compilation.task(TASKS, "run").get("interface");
+        assertThat(run.get("inputs").get("input").get("value").get("row")).isEqualTo(nullableRow);
+        assertThat(run.get("outputs").get("result").get("value").get("row")).isEqualTo(nullableRow);
+        assertThat(compilation.task(TASKS, "plain").get("interface").get("inputs").get("input").get("value")
+                .get("row").has("nullable")).isFalse();
+    }
+
+    @Test
+    void refusesAGenericRecordNamingItInsteadOfItsTypeVariable() {
+        Compilation compilation = compileTasks(output, """
+                public record Pair<T>(T left, T right) {
+                }
+
+                public record Holder(Pair<String> names) {
+                }
+
+                @Task
+                public static Rows rows(List<Pair<String>> input) {
+                    return Rows.empty();
+                }
+
+                @Task
+                public static Rows nested(Rows input, Holder holder) {
+                    return input;
+                }
+                """);
+
+        assertThat(compilation.errors()).containsExactly(
+                "@Task method Tasks.rows input is record fixtures.Tasks.Pair, which has type parameters; a Brokoli "
+                        + "record has no type parameters, so declare one whose components have concrete types",
+                "@Task method Tasks.nested parameter holder.names is record fixtures.Tasks.Pair, which has type "
+                        + "parameters; a Brokoli record has no type parameters, so declare one whose components "
+                        + "have concrete types");
+        assertThat(Files.exists(compilation.taskFilePath(TASKS))).isFalse();
     }
 
     @Test
