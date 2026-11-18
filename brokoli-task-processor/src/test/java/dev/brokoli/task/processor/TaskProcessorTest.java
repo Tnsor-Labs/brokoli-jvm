@@ -182,6 +182,51 @@ class TaskProcessorTest {
     }
 
     @Test
+    void refusesNullableInputRowsAndANullableResultButNotNullableRows() {
+        Compilation compilation = compileTasks(output, """
+                public record Order(String id) {
+                }
+
+                @Task
+                public static Rows typeUse(@Nullable Rows input) {
+                    return Rows.empty();
+                }
+
+                @Task
+                public static Rows declared(@fixtures.other.Nullable List<Order> input) {
+                    return Rows.empty();
+                }
+
+                @Task
+                public static @Nullable Rows result(Rows input) {
+                    return input;
+                }
+
+                @Task
+                @fixtures.other.Nullable
+                public static List<Order> declaredResult(Rows input) {
+                    return List.of();
+                }
+
+                @Task
+                public static List<@Nullable Order> rows(List<@Nullable Order> input) {
+                    return input;
+                }
+                """);
+
+        assertThat(compilation.errors()).containsExactly(
+                "@Task method Tasks.typeUse has @Nullable input rows, which are never null: with no upstream rows "
+                        + "the task gets empty rows",
+                "@Task method Tasks.declared has @Nullable input rows, which are never null: with no upstream rows "
+                        + "the task gets empty rows",
+                "@Task method Tasks.result has a @Nullable result; return an empty list or Rows.empty() instead of "
+                        + "null",
+                "@Task method Tasks.declaredResult has a @Nullable result; return an empty list or Rows.empty() "
+                        + "instead of null");
+        assertThat(Files.exists(compilation.taskFilePath(TASKS))).isFalse();
+    }
+
+    @Test
     void refusesADefaultOnTheInputRows() {
         Compilation compilation = compileTasks(output, """
                 @Task

@@ -33,6 +33,14 @@ final class TaskReader {
             throw new InvalidTaskException(label + " has @Default on its input rows, which always come from the "
                     + "upstream node", input);
         }
+        if (TypeMapper.isNullable(input, input.asType())) {
+            throw new InvalidTaskException(label + " has @Nullable input rows, which are never null: with no upstream"
+                    + " rows the task gets empty rows", input);
+        }
+        if (TypeMapper.isNullable(method, method.getReturnType())) {
+            throw new InvalidTaskException(label + " has a @Nullable result; return an empty list or Rows.empty()"
+                    + " instead of null", method);
+        }
         Map<String, Object> inputRow = types.datasetRow(input.asType(), label + " input", input);
         Map<String, Object> resultRow = types.datasetRow(method.getReturnType(), label + " result", method);
         return new TaskDeclaration(method.getSimpleName().toString(), displayName(method, label),
