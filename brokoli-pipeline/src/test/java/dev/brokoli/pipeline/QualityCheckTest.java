@@ -60,7 +60,7 @@ class QualityCheckTest {
 
         assertThatThrownBy(() -> p.qualityCheck("Gate", options))
                 .isInstanceOf(PipelineException.class)
-                .hasMessage("quality_check Gate: rules[0].params.min is NaN; a rule value is null, a String, a"
+                .hasMessage("quality_check Gate: rules[0].params.min is NaN; a JSON value is null, a String, a"
                         + " Boolean, an Integer, a Long, a BigInteger, a finite Double, a List, or a Map with String"
                         + " keys");
         assertThat(JSON.readTree(p.toJson()).path("nodes")).isEmpty();

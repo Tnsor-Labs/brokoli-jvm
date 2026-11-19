@@ -11,7 +11,7 @@ import java.util.Map;
 
 final class JsonValues {
 
-    private static final String ALLOWED_VALUES = "a rule value is null, a String, a Boolean, an Integer, a Long,"
+    private static final String ALLOWED_VALUES = "a JSON value is null, a String, a Boolean, an Integer, a Long,"
             + " a BigInteger, a finite Double, a List, or a Map with String keys";
 
     private static final JsonNodeFactory JSON = JsonNodeFactory.instance;

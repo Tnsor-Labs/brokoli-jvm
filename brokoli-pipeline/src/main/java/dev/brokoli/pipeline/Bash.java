@@ -48,8 +48,8 @@ public record Bash(String command, Optional<String> workingDir, Map<String, Stri
         Objects.requireNonNull(maxMemoryMb, "maxMemoryMb");
         Objects.requireNonNull(maxCpuTime, "maxCpuTime");
         Objects.requireNonNull(node, "node");
-        maxMemoryMb.ifPresent(Bash::requireMemory);
-        maxCpuTime.ifPresent(Bash::requireCpuTime);
+        maxMemoryMb.ifPresent(ResourceLimits::requireMemory);
+        maxCpuTime.ifPresent(ResourceLimits::requireCpuTime);
     }
 
     /**
@@ -125,19 +125,5 @@ public record Bash(String command, Optional<String> workingDir, Map<String, Stri
     @Override
     public Bash node(NodeOptions node) {
         return new Bash(command, workingDir, env, maxMemoryMb, maxCpuTime, node);
-    }
-
-    private static void requireMemory(int maxMemoryMb) {
-        if (maxMemoryMb <= 0) {
-            throw new IllegalArgumentException("memory limit " + maxMemoryMb + " MB is not positive");
-        }
-    }
-
-    private static void requireCpuTime(Duration maxCpuTime) {
-        NodeOptions.requireNotNegative("CPU time limit", maxCpuTime);
-        if (maxCpuTime.getNano() != 0) {
-            throw new IllegalArgumentException("CPU time limit " + maxCpuTime
-                    + " is not a whole number of seconds, which the server takes");
-        }
     }
 }

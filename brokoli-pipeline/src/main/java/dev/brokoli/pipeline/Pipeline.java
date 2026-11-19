@@ -306,6 +306,119 @@ public final class Pipeline {
     }
 
     /**
+     * Adds a {@code source_api} node, which reads the records an HTTP endpoint returns.
+     *
+     * @param name the node's name, such as {@code "Fetch"}
+     * @param options the request, where the records are in the body and the node's options
+     * @return the node
+     * @throws PipelineException if the body has a value with no JSON form, or the node key is the id of another
+     *         node of the pipeline
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public DatasetRef sourceApi(String name, SourceApi options) {
+        Objects.requireNonNull(name, "name");
+        ObjectNode config = JSON.objectNode();
+        config.put(IrFields.URL, options.url());
+        config.put(IrFields.METHOD, options.method());
+        config.put(IrFields.RESPONSE, IrFields.DATASET);
+        putStrings(config, IrFields.HEADERS, options.headers());
+        options.body().ifPresent(body -> config.set(IrFields.BODY,
+                JsonValues.of(IrFields.SOURCE_API + " " + name + ": " + IrFields.BODY, body)));
+        options.connId().ifPresent(connId -> config.put(IrFields.CONN_ID, connId));
+        putStrings(config, IrFields.PARAMS, options.params());
+        options.records().ifPresent(records -> config.put(IrFields.RECORDS, records));
+        options.node().writeRetriesAndTimeout(config);
+        options.sourceType().ifPresent(sourceType -> config.put(IrFields.SOURCE_TYPE, sourceType));
+        options.node().writePool(config);
+        config.put(IrFields.SCHEMA_HINT, IrFields.API_RESPONSE);
+        return new DatasetRef(add(IrFields.SOURCE_API, name, config, null, List.of(), options.node()), this);
+    }
+
+    /**
+     * Adds a {@code sink_api} node with no input yet; {@link NodeRef#then(NodeRef)} gives it one.
+     *
+     * @param name the node's name, such as {@code "Push"}
+     * @param options the endpoint, how the rows are sent and the node's options
+     * @return the node
+     * @throws PipelineException if the node key is the id of another node of the pipeline
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public NodeRef sinkApi(String name, SinkApi options) {
+        return sinkApi(name, List.of(), options);
+    }
+
+    /**
+     * Adds a {@code sink_api} node that sends another node's output.
+     *
+     * @param name the node's name, such as {@code "Push"}
+     * @param input the node whose output it sends
+     * @param options the endpoint, how the rows are sent and the node's options
+     * @return the node
+     * @throws PipelineException if the input belongs to another pipeline, or the node key is the id of another
+     *         node of the pipeline
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public NodeRef sinkApi(String name, NodeRef input, SinkApi options) {
+        return sinkApi(name, List.of(input), options);
+    }
+
+    /**
+     * Adds a {@code code} node with no input yet; {@link NodeRef#then(NodeRef)} gives it one.
+     *
+     * @param name the node's name, such as {@code "Enrich"}
+     * @param options the script, its runtime and limits, and the node's options
+     * @return the node
+     * @throws PipelineException if the node key is the id of another node of the pipeline
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public NodeRef code(String name, Code options) {
+        return code(name, List.of(), options);
+    }
+
+    /**
+     * Adds a {@code code} node that runs its script on another node's output.
+     *
+     * @param name the node's name, such as {@code "Enrich"}
+     * @param input the node whose output the script reads
+     * @param options the script, its runtime and limits, and the node's options
+     * @return the node
+     * @throws PipelineException if the input belongs to another pipeline, or the node key is the id of another
+     *         node of the pipeline
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public NodeRef code(String name, NodeRef input, Code options) {
+        return code(name, List.of(input), options);
+    }
+
+    /**
+     * Adds a {@code notify} node with no input yet; {@link NodeRef#then(NodeRef)} gives it one.
+     *
+     * @param name the node's name, such as {@code "Alert"}
+     * @param options where the message goes, the message and the node's options
+     * @return the node
+     * @throws PipelineException if the node key is the id of another node of the pipeline
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public NodeRef notify(String name, Notify options) {
+        return notify(name, List.of(), options);
+    }
+
+    /**
+     * Adds a {@code notify} node that runs after another node and passes that node's output through.
+     *
+     * @param name the node's name, such as {@code "Alert"}
+     * @param input the node it runs after, whose row count the message can name
+     * @param options where the message goes, the message and the node's options
+     * @return the node
+     * @throws PipelineException if the input belongs to another pipeline, or the node key is the id of another
+     *         node of the pipeline
+     * @throws NullPointerException if a value is {@code null}
+     */
+    public NodeRef notify(String name, NodeRef input, Notify options) {
+        return notify(name, List.of(input), options);
+    }
+
+    /**
      * Adds a {@code task} node that runs a {@code @Task} method, named by the task's display name. The first call
      * packages the pipeline's task project into one task-bundle/v2 archive per task, as
      * {@code brokoli-maven-plugin} does; the node references its task's archive by digest, carries the task's
@@ -421,10 +534,7 @@ public final class Pipeline {
         ObjectNode config = JSON.objectNode();
         config.put(IrFields.COMMAND, options.command());
         options.workingDir().ifPresent(workingDir -> config.put(IrFields.WORKING_DIR, workingDir));
-        if (!options.env().isEmpty()) {
-            ObjectNode env = config.putObject(IrFields.ENV);
-            new TreeMap<>(options.env()).forEach(env::put);
-        }
+        putStrings(config, IrFields.ENV, options.env());
         options.maxMemoryMb().ifPresent(megabytes -> config.put(IrFields.MAX_MEMORY_MB, megabytes));
         options.maxCpuTime().ifPresent(cpuTime -> config.put(IrFields.MAX_CPU_SECONDS, cpuTime.toSeconds()));
         options.node().writeRetriesAndTimeout(config);
@@ -458,6 +568,50 @@ public final class Pipeline {
         options.tableEngine().ifPresent(engine -> config.put(IrFields.TABLE_ENGINE, engine));
         options.node().writePool(config);
         return new NodeRef(add(IrFields.SINK_DB, name, config, null, inputs, options.node()), this);
+    }
+
+    private NodeRef sinkApi(String name, List<NodeRef> inputs, SinkApi options) {
+        ObjectNode config = JSON.objectNode();
+        config.put(IrFields.URL, options.url());
+        config.put(IrFields.METHOD, options.method());
+        putStrings(config, IrFields.HEADERS, options.headers());
+        options.connId().ifPresent(connId -> config.put(IrFields.CONN_ID, connId));
+        options.batchSize().ifPresent(size -> config.put(IrFields.BATCH_SIZE, size));
+        options.authUser().ifPresent(user -> config.put(IrFields.AUTH_USER, user));
+        options.authPassword().ifPresent(password -> config.put(IrFields.AUTH_PASSWORD, password));
+        options.node().writeRetriesAndTimeout(config);
+        options.node().writePool(config);
+        return new NodeRef(add(IrFields.SINK_API, name, config, null, inputs, options.node()), this);
+    }
+
+    private NodeRef code(String name, List<NodeRef> inputs, Code options) {
+        ObjectNode config = JSON.objectNode();
+        config.put(IrFields.LANGUAGE, options.language().irValue());
+        config.put(IrFields.SCRIPT, options.script());
+        options.pythonPath().ifPresent(pythonPath -> config.put(IrFields.PYTHON_PATH, pythonPath));
+        options.node().writeRetriesAndTimeout(config);
+        options.nodePath().ifPresent(nodePath -> config.put(IrFields.NODE_PATH, nodePath));
+        options.maxMemoryMb().ifPresent(megabytes -> config.put(IrFields.MAX_MEMORY_MB, megabytes));
+        options.maxCpuTime().ifPresent(cpuTime -> config.put(IrFields.MAX_CPU_SECONDS, cpuTime.toSeconds()));
+        options.node().writePool(config);
+        return new NodeRef(add(IrFields.CODE, name, config, null, inputs, options.node()), this);
+    }
+
+    private NodeRef notify(String name, List<NodeRef> inputs, Notify options) {
+        ObjectNode config = JSON.objectNode();
+        config.put(IrFields.NOTIFY_TYPE, options.type().irValue());
+        config.put(IrFields.WEBHOOK_URL, options.webhookUrl());
+        options.message().ifPresent(message -> config.put(IrFields.MESSAGE, message));
+        options.channel().ifPresent(channel -> config.put(IrFields.CHANNEL, channel));
+        options.node().writeRetriesAndTimeout(config);
+        return new NodeRef(add(IrFields.NOTIFY, name, config, null, inputs, options.node()), this);
+    }
+
+    private static void putStrings(ObjectNode config, String field, Map<String, String> values) {
+        if (!values.isEmpty()) {
+            ObjectNode object = config.putObject(field);
+            new TreeMap<>(values).forEach(object::put);
+        }
     }
 
     private String add(String type, String nodeName, ObjectNode config, JsonNode nodeInterface,

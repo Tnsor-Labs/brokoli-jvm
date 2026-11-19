@@ -163,7 +163,7 @@ class PipelineTest {
 
         assertThatThrownBy(() -> p.transform("Clean", rules))
                 .isInstanceOf(PipelineException.class)
-                .hasMessage("transform Clean: rules[0].since[0] is a java.time.Instant; a rule value is null, a"
+                .hasMessage("transform Clean: rules[0].since[0] is a java.time.Instant; a JSON value is null, a"
                         + " String, a Boolean, an Integer, a Long, a BigInteger, a finite Double, a List, or a Map"
                         + " with String keys");
     }
@@ -175,7 +175,7 @@ class PipelineTest {
 
         assertThatThrownBy(() -> p.transform("Clean", rules))
                 .isInstanceOf(PipelineException.class)
-                .hasMessageStartingWith("transform Clean: rules[0].fraction is NaN; a rule value is");
+                .hasMessageStartingWith("transform Clean: rules[0].fraction is NaN; a JSON value is");
     }
 
     @Test

@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -34,11 +35,14 @@ class PythonReferenceTest {
                 Arguments.of("data", EXPECTED, (Supplier<Pipeline>) PythonReferenceTest::data),
                 Arguments.of("join_collision_alias", EXPECTED,
                         (Supplier<Pipeline>) PythonReferenceTest::joinCollisionAlias),
+                Arguments.of("io_options", EXPECTED, (Supplier<Pipeline>) PythonReferenceTest::ioOptions),
                 Arguments.of("sla_utc", LOCAL_EXPECTED, (Supplier<Pipeline>) PythonReferenceTest::slaUtc),
                 Arguments.of("retry_delay_only", LOCAL_EXPECTED,
                         (Supplier<Pipeline>) PythonReferenceTest::retryDelayOnly),
                 Arguments.of("node_key_between_ids", LOCAL_EXPECTED,
-                        (Supplier<Pipeline>) PythonReferenceTest::nodeKeyBetweenIds));
+                        (Supplier<Pipeline>) PythonReferenceTest::nodeKeyBetweenIds),
+                Arguments.of("api_code_notify_options", LOCAL_EXPECTED,
+                        (Supplier<Pipeline>) PythonReferenceTest::apiCodeNotifyOptions));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -130,6 +134,76 @@ class PythonReferenceTest {
                 .connId("warehouse")
                 .query("SELECT id, name FROM right_table"));
         p.join("Merge", left, right, Join.options().on("id").rightAlias("right_row"));
+        return p;
+    }
+
+    private static Pipeline ioOptions() {
+        Pipeline p = Pipeline.builder("IO options").pipelineId("io-options").build();
+        DatasetRef file = p.sourceFile("Read file", SourceFile.options()
+                .path("/data/in.csv")
+                .retries(3)
+                .timeout(Duration.ofSeconds(60))
+                .pool("files"));
+        DatasetRef api = p.sourceApi("Fetch", SourceApi.options()
+                .url("https://api.example.com/graphql")
+                .sourceType("graphql")
+                .pool("api"));
+        DatasetRef db = p.sourceDb("Query", SourceDb.options().query("SELECT 1").connId("warehouse").pool("warehouse"));
+        NodeRef shaped = p.code("Shape", file, Code.typescript("export default (rows) => rows")
+                .nodePath("/usr/bin/node")
+                .maxMemoryMb(256)
+                .maxCpuTime(Duration.ofSeconds(30))
+                .retries(1)
+                .retryDelay(Duration.ofMillis(2000))
+                .pool("compute"));
+        p.sinkDb("Load", shaped, SinkDb.options()
+                .table("events")
+                .connId("clickhouse")
+                .createTable(true)
+                .tableEngine("ReplacingMergeTree")
+                .retries(2)
+                .timeout(Duration.ofSeconds(300))
+                .pool("clickhouse"));
+        p.sinkFile("Save", api, SinkFile.options().path("/data/out.csv").pool("files"));
+        p.sinkApi("Post", db, SinkApi.options().url("https://hooks.example.com/x").retries(1).pool("api"));
+        p.notify("Tell", db, Notify.webhook("https://hooks.example.com/notify")
+                .retries(2)
+                .retryDelay(Duration.ofMillis(1000)));
+        return p;
+    }
+
+    private static Pipeline apiCodeNotifyOptions() {
+        Pipeline p = Pipeline.builder("Item Push").pipelineId("item-push").build();
+        DatasetRef items = p.sourceApi("Search", SourceApi.options()
+                .url("/items/search")
+                .method("POST")
+                .headers(Map.of("Accept", "application/json", "X-Api-Key", "${secret.items_key}"))
+                .body(Map.of("query", "{ items { id } }", "limit", 100,
+                        "nested", Map.of("active", true, "tags", Arrays.asList("a", null))))
+                .connId("items_api")
+                .params(Map.of("since", "${param.since}", "status", "active"))
+                .records("data.items")
+                .retries(2)
+                .retryDelay(Duration.ofMillis(1500))
+                .timeout(Duration.ofSeconds(45)));
+        NodeRef shaped = p.code("Shape", items, Code.python("output_data = {'columns': columns, 'rows': rows}")
+                .pythonPath("/opt/venv/bin/python")
+                .timeout(Duration.ofSeconds(120))
+                .maxMemoryMb(512)
+                .maxCpuTime(Duration.ofSeconds(60)));
+        p.sinkApi("Push", shaped, SinkApi.options()
+                .url("https://sink.example.com/ingest")
+                .method("PUT")
+                .headers(Map.of("X-Source", "brokoli"))
+                .connId("sink_api")
+                .batchSize(250)
+                .basicAuth("loader", "${secret.sink_password}")
+                .timeout(Duration.ofSeconds(30))
+                .pool("api"));
+        p.notify("Alert", shaped, Notify.slack("https://hooks.slack.com/services/T0/B0/x")
+                .message("Pipeline {{pipeline}} pushed {{rows}} rows")
+                .channel("#data-alerts")
+                .timeout(Duration.ofSeconds(10)));
         return p;
     }
 
