@@ -18,7 +18,7 @@ The research behind the API also covered AWS CDK and Pulumi Java, which type eac
 
 ## Decision
 
-`brokoli-pipeline` has a `Pipeline` with one method per node type, named as in the Python and TypeScript SDKs, each taking an immutable options record. An edge is drawn with `NodeRef.then` or by passing the input to the method. The pipeline compiles to Python's keys and values, and normalizes, renders and digests as core's spec says, with Python's ordering. A `task` node names its `@Task` method by class and method name, and the pipeline packages the task from a `TaskProject` through `brokoli-bundle`, as Python packages `@task(package="bundle")`. Times are `java.time` values: a node's timeout and retry delay are a `Duration`, written as the seconds and milliseconds the server reads, and the pipeline's SLA is a `LocalTime` and a `ZoneId`. The options every node has, a node key, retries, a retry delay and a timeout, come from the `WithNodeOptions` interface, and the pool from `WithPool`, as the TypeScript SDK shares `RetryOptions` and `PoolOption` across its option types. An options record implements one of them and writes only `node(NodeOptions)`; a `transform` implements `WithNodeOptions` alone, because it runs in no pool. A value the server reads from a fixed set, such as a join type, a join's collision policy or a database sink's write mode, is an enum. A value that only makes sense with another comes with it: `rightAlias` sets the alias collision policy, and `upsert` the upsert mode with its key columns.
+`brokoli-pipeline` has a `Pipeline` with one method per node type, named as in the Python and TypeScript SDKs, each taking an immutable options record. An edge is drawn with `NodeRef.then` or by passing the input to the method. The pipeline compiles to Python's keys and values, and normalizes, renders and digests as core's spec says, with Python's ordering. A `task` node names its `@Task` method by class and method name, and the pipeline packages the task from a `TaskProject` through `brokoli-bundle`, as Python packages `@task(package="bundle")`. Times are `java.time` values: a node's timeout and retry delay are a `Duration`, written as the seconds and milliseconds the server reads, and the pipeline's SLA is a `LocalTime` and a `ZoneId`. The options every node has, a node key, retries, a retry delay and a timeout, come from the `WithNodeOptions` interface, and the pool from `WithPool`, as the TypeScript SDK shares `RetryOptions` and `PoolOption` across its option types. An options record implements one of them and writes only `node(NodeOptions)`; a `transform` implements `WithNodeOptions` alone, because it runs in no pool. A value the server reads from a fixed set, such as a join type, a join's collision policy, a database sink's write mode, a `code` node's language or a `notify` node's type, is an enum; a value core reads from an open set, such as an HTTP method or a `source_api` fetcher, is a string. A value that only makes sense with another comes with it: `rightAlias` sets the alias collision policy, `upsert` the upsert mode with its key columns, `basicAuth` a user with its password, `Code.python` and `Code.typescript` the language whose interpreter or Node executable can be set, and `Notify.slack` the only type that takes a channel.
 
 ## Consequences
 
@@ -30,6 +30,7 @@ The research behind the API also covered AWS CDK and Pulumi Java, which type eac
 - `taskBundles()` holds every archive the pipeline references, so a deployer uploads exactly those.
 - A retry delay cannot be given in seconds by mistake, which the Python SDK's docs warn about for `retry_delay=1`. A delay or timeout finer than the server reads, and a fixed offset in place of a time zone, are refused while the pipeline is built.
 - A misspelled join type is a compile error. Core runs a join type it does not know as an inner join, with no warning (`engine/join.go`), so a string would let `"lefft"` drop rows silently. An upsert without key columns, which core refuses only when it runs on Postgres or MySQL, cannot be built.
+- A `code` node's language and a `notify` node's type are checked when the Java code is compiled. Core refuses any other language when it validates the pipeline (`engine/validate.go`) and any other notify type only when the node runs (`engine/node_notify.go`), and it ignores a Python interpreter on a TypeScript script, a Node executable on a Python one and a channel on a webhook.
 
 ### Negative
 
@@ -42,6 +43,8 @@ The research behind the API also covered AWS CDK and Pulumi Java, which type eac
 ### Deferred
 
 - The other node types. They are added group by group, each checked against the fixtures in `python-reference/`.
+- A `source_api` reads a dataset only. Python's scalar and artifact responses need their own methods, because a method's return type cannot change with an option's value (#46).
+- A `sink_api` writes no body. Python writes its `body` as `body_template`, and core reads no such key, so the option would have no effect; this is raised in the PR for core.
 - Deploying: uploading the bundles and creating the pipeline on a server.
 
 ## Alternatives considered
@@ -60,5 +63,5 @@ The research behind the API also covered AWS CDK and Pulumi Java, which type eac
 
 ## Follow-ups
 
-- The remaining 10 fixtures in `python-reference/`, node group by node group.
+- The remaining 7 fixtures in `python-reference/`, node group by node group.
 - The ordering difference between the Python and TypeScript SDKs, raised in the PR.

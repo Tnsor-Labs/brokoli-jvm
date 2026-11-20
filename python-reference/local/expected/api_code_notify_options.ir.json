@@ -1,0 +1,121 @@
+{
+  "dependency_rules": [],
+  "depends_on": [],
+  "description": "",
+  "edges": [
+    {
+      "from": "search_1",
+      "to": "shape_1"
+    },
+    {
+      "from": "shape_1",
+      "to": "push_1"
+    },
+    {
+      "from": "shape_1",
+      "to": "alert_1"
+    }
+  ],
+  "enabled": true,
+  "hooks": {},
+  "ir_version": "2.0",
+  "name": "Item Push",
+  "nodes": [
+    {
+      "capabilities": [
+        "compute"
+      ],
+      "config": {
+        "channel": "#data-alerts",
+        "message": "Pipeline {{pipeline}} pushed {{rows}} rows",
+        "notify_type": "slack",
+        "timeout": 10,
+        "webhook_url": "https://hooks.slack.com/services/T0/B0/x"
+      },
+      "id": "alert_1",
+      "name": "Alert",
+      "type": "notify"
+    },
+    {
+      "capabilities": [
+        "sink"
+      ],
+      "config": {
+        "auth_password": "${secret.sink_password}",
+        "auth_user": "loader",
+        "batch_size": 250,
+        "conn_id": "sink_api",
+        "headers": {
+          "X-Source": "brokoli"
+        },
+        "method": "PUT",
+        "pool": "api",
+        "timeout": 30,
+        "url": "https://sink.example.com/ingest"
+      },
+      "id": "push_1",
+      "name": "Push",
+      "type": "sink_api"
+    },
+    {
+      "capabilities": [
+        "dataset-output",
+        "source"
+      ],
+      "config": {
+        "_schema_hint": "api_response",
+        "body": {
+          "limit": 100,
+          "nested": {
+            "active": true,
+            "tags": [
+              "a",
+              null
+            ]
+          },
+          "query": "{ items { id } }"
+        },
+        "conn_id": "items_api",
+        "headers": {
+          "Accept": "application/json",
+          "X-Api-Key": "${secret.items_key}"
+        },
+        "max_retries": 2,
+        "method": "POST",
+        "params": {
+          "since": "${param.since}",
+          "status": "active"
+        },
+        "records": "data.items",
+        "response": "dataset",
+        "retry_backoff": "exponential",
+        "retry_delay": 1500,
+        "timeout": 45,
+        "url": "/items/search"
+      },
+      "id": "search_1",
+      "name": "Search",
+      "type": "source_api"
+    },
+    {
+      "capabilities": [
+        "compute"
+      ],
+      "config": {
+        "language": "python",
+        "max_cpu_seconds": 60,
+        "max_memory_mb": 512,
+        "python_path": "/opt/venv/bin/python",
+        "script": "output_data = {'columns': columns, 'rows': rows}",
+        "timeout": 120
+      },
+      "id": "shape_1",
+      "name": "Shape",
+      "type": "code"
+    }
+  ],
+  "params": {},
+  "pipeline_id": "item-push",
+  "schedule": "",
+  "tags": []
+}

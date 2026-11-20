@@ -123,7 +123,21 @@ gated.then(p.sinkDb("Load", SinkDb.options().connId("warehouse").table("orders_e
 
 A join type, a collision policy and a write mode are enums, so a misspelled one is a compile error; core runs an unknown join type as an inner join. `rightAlias` sets the alias collision policy and `upsert` the upsert mode, each with the value it needs, so the combinations core refuses cannot be written.
 
-So far the builder has `sourceFile`, `sourceDb`, `transform`, `join`, `qualityCheck`, `sinkFile`, `sinkDb`, `bash` and `task`. The other node types come next, one group at a time, each checked against the Python SDK's output in `python-reference/`.
+An HTTP source, a script, an HTTP sink and a Slack message:
+
+```java
+DatasetRef items = p.sourceApi("Fetch", SourceApi.options()
+        .url("https://api.example.com/items")
+        .headers(Map.of("X-Api-Key", "${secret.items_key}"))
+        .records("data.items"));
+NodeRef shaped = p.code("Shape", items, Code.python("output_data = {'columns': columns, 'rows': rows}"));
+p.sinkApi("Push", shaped, SinkApi.options().url("/ingest").connId("sink_api").batchSize(250));
+p.notify("Alert", shaped, Notify.slack("https://hooks.slack.com/services/T0/B0/x").channel("#data-alerts"));
+```
+
+A script's language and a message's type are enums too, and each comes with the options it takes: only `Code.python` takes a Python interpreter, only `Code.typescript` a Node executable, and only `Notify.slack` a channel. A `sourceApi` reads a dataset; the scalar and artifact responses come later (#46).
+
+So far the builder has `sourceFile`, `sourceApi`, `sourceDb`, `transform`, `join`, `qualityCheck`, `code`, `notify`, `sinkFile`, `sinkApi`, `sinkDb`, `bash` and `task`. The other node types come next, one group at a time, each checked against the Python SDK's output in `python-reference/`.
 
 ## How it fits with the rest of Brokoli
 

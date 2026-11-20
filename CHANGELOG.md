@@ -29,6 +29,17 @@ Every entry names its owner.
 
 ### Added
 
+- **HTTP, code and notify nodes** -- @DarzVadckawy. `sourceApi` reads
+  the records an HTTP endpoint returns as a dataset, `sinkApi` sends its
+  input's rows to one in batches, `code` runs a Python or TypeScript
+  script on its input, and `notify` sends a message to a webhook or to
+  Slack, each written with the keys, order and values of the Python SDK,
+  including the `_schema_hint` of a `source_api`. A script's language and
+  a message's type are enums. `Code.python` and `Code.typescript` start a
+  script with the runtime option its language takes, `Notify.slack` is the
+  only type that takes a channel, and `basicAuth` sets a user with its
+  password. A `sourceApi` reads a dataset only, and a `sinkApi` writes no
+  body, which core does not read.
 - **Database, join and quality check nodes** -- @DarzVadckawy. `sourceDb`
   reads the rows a query returns, `join` joins two inputs on a key column of
   each, `qualityCheck` checks its input against rules given as maps, and
