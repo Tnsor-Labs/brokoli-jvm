@@ -2,6 +2,7 @@ package dev.brokoli.task.processor;
 
 import dev.brokoli.task.internal.TaskValueException;
 import dev.brokoli.task.processor.TestCompiler.Compilation;
+import dev.brokoli.task.processor.TestCompiler.Source;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import tools.jackson.core.type.TypeReference;
@@ -186,6 +187,61 @@ class TaskClassTest {
     }
 
     @Test
+    void refusesANaNOrAnInfinityInTheResultNamingItsPath() {
+        Compilation compilation = compileTasks(output, """
+                public record Score(String sensor, double score, float ratio, List<Double> history) {
+                }
+
+                @Task
+                public static List<Score> score(Rows input, String fault) {
+                    Score good = new Score("a", 0.5, 0.5f, List.of(1.0));
+                    return switch (fault) {
+                        case "score" -> List.of(good, good, good, new Score("b", Double.NaN, 0.5f, List.of()));
+                        case "ratio" -> List.of(new Score("b", 0.5, Float.NEGATIVE_INFINITY, List.of()));
+                        case "history" -> List.of(new Score("b", 0.5, 0.5f, List.of(1.0, Double.POSITIVE_INFINITY)));
+                        default -> List.of(good);
+                    };
+                }
+                """);
+        String entrypoint = entrypoint(compilation, "score");
+
+        assertThatThrownBy(() -> compilation.call(entrypoint, Map.of("fault", "score")))
+                .isInstanceOf(TaskValueException.class)
+                .hasMessage("result[3].score is NaN, expected a finite number");
+        assertThatThrownBy(() -> compilation.call(entrypoint, Map.of("fault", "ratio")))
+                .hasMessage("result[0].ratio is -Infinity, expected a finite number");
+        assertThatThrownBy(() -> compilation.call(entrypoint, Map.of("fault", "history")))
+                .hasMessage("result[0].history[1] is Infinity, expected a finite number");
+        assertThat(json(compilation.call(entrypoint, Map.of("fault", "none")))).isEqualTo(json("""
+                [{"sensor": "a", "score": 0.5, "ratio": 0.5, "history": [1.0]}]"""));
+    }
+
+    @Test
+    void aTaskCompilesInAPackageThatDeclaresItsOwnStringObjectAndTaskValues() {
+        Compilation compilation = compileUnit(output, TASKS, """
+                public final class Tasks {
+
+                    public record Reading(java.lang.String sensor, double value,
+                            Map<java.lang.String, List<Long>> counts) {
+                    }
+
+                    @Task
+                    public static List<Reading> tag(List<Reading> input, java.lang.String suffix) {
+                        return input.stream()
+                                .map(reading -> new Reading(reading.sensor() + suffix, reading.value(), reading.counts()))
+                                .toList();
+                    }
+                }
+                """, shadowing("String"), shadowing("Object"), shadowing("TaskValues"));
+
+        Object result = compilation.call(entrypoint(compilation, "tag"), kwargs("""
+                {"input": [{"sensor": "a", "value": 1.5, "counts": {"x": [1, 2]}}], "suffix": "-eu"}"""));
+
+        assertThat(json(result)).isEqualTo(json("""
+                [{"sensor": "a-eu", "value": 1.5, "counts": {"x": [1, 2]}}]"""));
+    }
+
+    @Test
     void aNestedClassGetsAFlattenedTaskClassName() {
         Compilation compilation = compileUnit(output, TASKS, """
                 public final class Tasks {
@@ -223,6 +279,11 @@ class TaskClassTest {
         assertThat(json(compilation.call(entrypoint(compilation, "echo"), kwargs("""
                 {"input": [{"id": "a"}]}""")))).isEqualTo(json("""
                 [{"id": "a"}]"""));
+    }
+
+    private static Source shadowing(String simpleName) {
+        return Source.of("fixtures." + simpleName, "package fixtures;\n\npublic final class " + simpleName
+                + " {\n}\n");
     }
 
     private static String entrypoint(Compilation compilation, String method) {

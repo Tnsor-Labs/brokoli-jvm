@@ -24,6 +24,10 @@ final class TaskClassWriter {
 
     private static final String VALUES_CLASS = "dev.brokoli.task.internal.TaskValues";
     private static final String VALUES = "TaskValues";
+    private static final String STRING = "java.lang.String";
+    private static final String OBJECT = "java.lang.Object";
+    private static final String VALUE_MAP = "java.util.Map<" + STRING + ", " + OBJECT + ">";
+    private static final String VALUE_LIST = "java.util.List<" + OBJECT + ">";
     private static final String ENTRY_SEPARATOR = "#";
     private static final String INDENT = "    ";
     private static final String CONTINUATION = INDENT + INDENT + INDENT + INDENT;
@@ -48,8 +52,8 @@ final class TaskClassWriter {
     private static final Map<String, String> SCALAR_WRITERS = Map.ofEntries(
             Map.entry("long", "plain"), Map.entry("java.lang.Long", "plain"),
             Map.entry("int", "writeInt"), Map.entry("java.lang.Integer", "writeInt"),
-            Map.entry("double", "plain"), Map.entry("java.lang.Double", "plain"),
-            Map.entry("float", "plain"), Map.entry("java.lang.Float", "plain"),
+            Map.entry("double", "writeDouble"), Map.entry("java.lang.Double", "writeDouble"),
+            Map.entry("float", "writeFloat"), Map.entry("java.lang.Float", "writeFloat"),
             Map.entry("boolean", "plain"), Map.entry("java.lang.Boolean", "plain"),
             Map.entry("java.lang.String", "plain"),
             Map.entry("java.math.BigDecimal", "writeDecimal"),
@@ -110,7 +114,7 @@ final class TaskClassWriter {
         }
         String call = owner.getQualifiedName() + "." + task.getSimpleName() + "(\n" + CONTINUATION
                 + String.join(",\n" + CONTINUATION, arguments) + ")";
-        return INDENT + "public static Object " + task.getSimpleName() + "(java.util.Map<String, Object> kwargs) {\n"
+        return INDENT + "public static " + OBJECT + " " + task.getSimpleName() + "(" + VALUE_MAP + " kwargs) {\n"
                 + INDENT + INDENT + "return " + VALUES + ".result(" + call + ",\n" + CONTINUATION
                 + writer(task.getReturnType()) + ");\n"
                 + INDENT + "}\n";
@@ -133,7 +137,7 @@ final class TaskClassWriter {
         String body = nullable
                 ? "return " + VALUES + ".nullable(value, " + reader(type, false) + ");\n"
                 : readBody(type);
-        readHelpers.set(slot, helper(typeName(type) + " " + name + "(Object value)", body));
+        readHelpers.set(slot, helper(typeName(type) + " " + name + "(" + OBJECT + " value)", body));
         return className + "::" + name;
     }
 
@@ -187,13 +191,13 @@ final class TaskClassWriter {
         String returned;
         if (element.getKind() == ElementKind.RECORD) {
             body = writeRecordBody(element);
-            returned = "java.util.Map<String, Object>";
+            returned = VALUE_MAP;
         } else {
             List<? extends TypeMirror> arguments = ((DeclaredType) type).getTypeArguments();
             boolean list = arguments.size() == 1;
             body = "return " + VALUES + (list ? ".writeList(value, " : ".writeMap(value, ")
                     + writer(arguments.get(arguments.size() - 1)) + ");\n";
-            returned = list ? "java.util.List<Object>" : "java.util.Map<String, Object>";
+            returned = list ? VALUE_LIST : VALUE_MAP;
         }
         writeHelpers.set(slot, helper(returned + " " + name + "(" + typeName(type) + " value)", body));
         return className + "::" + name;
@@ -206,7 +210,7 @@ final class TaskClassWriter {
     private String writeRecordBody(TypeElement record) {
         StringBuilder body = new StringBuilder();
         body.append("if (value == null) {\n").append(INDENT).append("return null;\n}\n");
-        body.append("java.util.Map<String, Object> fields = new java.util.LinkedHashMap<>();\n");
+        body.append(VALUE_MAP).append(" fields = new java.util.LinkedHashMap<>();\n");
         for (RecordComponentElement component : record.getRecordComponents()) {
             String name = component.getSimpleName().toString();
             body.append(VALUES).append(".put(fields, ").append(literal(name)).append(", value.").append(name)

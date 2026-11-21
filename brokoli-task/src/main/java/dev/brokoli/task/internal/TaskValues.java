@@ -50,6 +50,7 @@ public final class TaskValues {
     private static final String WHOLE_NUMBER = "a whole number";
     private static final String INT_RANGE = "a whole number from -2147483648 to 2147483647";
     private static final String NUMBER = "a number";
+    private static final String FINITE_NUMBER = "a finite number";
     private static final String FLOAT_RANGE = "a number from -3.4028234663852886E38 to 3.4028234663852886E38";
     private static final String INEXACT_LONG = "a Long that a double cannot hold exactly";
     private static final String INEXACT_DOUBLE = "a whole number that a double cannot hold exactly";
@@ -596,13 +597,40 @@ public final class TaskValues {
     }
 
     /**
-     * Writes a value JSON carries as it is: a {@code String}, {@code Boolean}, {@code Long},
-     * {@code Double} or {@code Float}.
+     * Writes a value JSON carries as it is: a {@code String}, {@code Boolean} or {@code Long}.
      *
      * @param value the value
      * @return the same value
      */
     public static Object plain(Object value) {
+        return value;
+    }
+
+    /**
+     * Writes a {@code float64} as it is, when it is finite.
+     *
+     * @param value the number, which may be null
+     * @return the same number, or null
+     * @throws TaskValueException if the number is NaN or infinite, which JSON cannot hold
+     */
+    public static Object writeDouble(Double value) {
+        if (value != null && !Double.isFinite(value)) {
+            throw new TaskValueException("", FINITE_NUMBER, value.toString());
+        }
+        return value;
+    }
+
+    /**
+     * Writes a {@code float} as it is, when it is finite.
+     *
+     * @param value the number, which may be null
+     * @return the same number, or null
+     * @throws TaskValueException if the number is NaN or infinite, which JSON cannot hold
+     */
+    public static Object writeFloat(Float value) {
+        if (value != null && !Float.isFinite(value)) {
+            throw new TaskValueException("", FINITE_NUMBER, value.toString());
+        }
         return value;
     }
 
