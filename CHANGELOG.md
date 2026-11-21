@@ -11,6 +11,15 @@ Every entry names its owner.
 
 ### Fixed
 
+- **Errors from the generated entry methods** -- @DarzVadckawy. A task
+  that returns NaN or an infinity in a `double` or `float` fails with the
+  value's path, such as `result[3].score is NaN, expected a finite
+  number`, where before the harness refused it with no path. The generated
+  class writes `java.lang.String` and `java.lang.Object`, so a class named
+  `String` or `Object` in the task's package no longer stops it compiling.
+  A nested `Tasks.Inner` and a top-level `Tasks_Inner`, which both give
+  `Tasks_Inner_BrokoliTasks`, get one compile error naming both, where
+  before the second failed with `Attempt to recreate a file`.
 - **Nullable map keys, rows and ports, and generic records** -- @DarzVadckawy.
   The task processor refuses a map with `@Nullable` keys, whose keys a
   Brokoli map never has, where before it dropped the annotation. A

@@ -122,6 +122,22 @@ class TaskValuesTest {
     }
 
     @Test
+    void writesAFiniteDoubleOrFloatAsItIsAndRefusesNaNAndTheInfinities() {
+        assertThat(TaskValues.writeDouble(-2.5)).isEqualTo(-2.5);
+        assertThat(TaskValues.writeDouble(Double.MAX_VALUE)).isEqualTo(Double.MAX_VALUE);
+        assertThat(TaskValues.writeDouble(null)).isNull();
+        assertThat(TaskValues.writeFloat(0.5f)).isEqualTo(0.5f);
+        assertThat(TaskValues.writeFloat(Float.MAX_VALUE)).isEqualTo(Float.MAX_VALUE);
+        assertThat(TaskValues.writeFloat(null)).isNull();
+        assertRefused(() -> TaskValues.writeDouble(Double.NaN), "a finite number", "NaN");
+        assertRefused(() -> TaskValues.writeDouble(Double.POSITIVE_INFINITY), "a finite number", "Infinity");
+        assertRefused(() -> TaskValues.writeDouble(Double.NEGATIVE_INFINITY), "a finite number", "-Infinity");
+        assertRefused(() -> TaskValues.writeFloat(Float.NaN), "a finite number", "NaN");
+        assertRefused(() -> TaskValues.writeFloat(Float.POSITIVE_INFINITY), "a finite number", "Infinity");
+        assertRefused(() -> TaskValues.writeFloat(Float.NEGATIVE_INFINITY), "a finite number", "-Infinity");
+    }
+
+    @Test
     void refusesToWriteAYearCoreCannotHoldNamingWhereItIs() {
         Map<String, Object> fields = new LinkedHashMap<>();
 

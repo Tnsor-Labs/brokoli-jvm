@@ -17,6 +17,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TaskProcessorTest {
 
+    private static final Source TOP_LEVEL_INNER = Source.of("fixtures.Tasks_Inner", """
+            package fixtures;
+
+            import dev.brokoli.task.Rows;
+            import dev.brokoli.task.Task;
+
+            public final class Tasks_Inner {
+
+                @Task
+                public static Rows run(Rows input) {
+                    return input;
+                }
+            }
+            """);
+
+    private static final String INNER_CLASH = "@Task classes fixtures.Tasks.Inner and fixtures.Tasks_Inner both give "
+            + "the generated class fixtures.Tasks_Inner_BrokoliTasks, because a nested class is flattened with _; "
+            + "rename one of them";
+
     @TempDir
     Path output;
 
@@ -270,6 +289,42 @@ class TaskProcessorTest {
         assertThat(compilation.errors()).containsExactly(
                 "@Task method Tasks.run is declared twice; the harness finds a task by its method name, so each "
                         + "must be unique");
+    }
+
+    @Test
+    void refusesANestedAndATopLevelClassThatGiveTheSameGeneratedClassWithOneErrorNamingBoth() {
+        Compilation compilation = compileUnit(output, TASKS, """
+                public final class Tasks {
+
+                    public static final class Inner {
+
+                        @Task
+                        public static Rows run(Rows input) {
+                            return input;
+                        }
+                    }
+                }
+                """, TOP_LEVEL_INNER);
+
+        assertThat(compilation.errors()).containsExactly(INNER_CLASH);
+        assertThat(Files.exists(compilation.taskFilePath("fixtures.Tasks$Inner"))).isTrue();
+        assertThat(Files.exists(compilation.taskFilePath("fixtures.Tasks_Inner"))).isFalse();
+    }
+
+    @Test
+    void refusesTheClashWhenTheTopLevelClassIsGeneratedInALaterRound() {
+        Compilation compilation = compileTasks(output, """
+                public static final class Inner {
+
+                    @Task
+                    public static Rows run(Rows input) {
+                        return input;
+                    }
+                }
+                """, List.of(new SourceGenerator(TOP_LEVEL_INNER)));
+
+        assertThat(compilation.errors()).containsExactly(INNER_CLASH);
+        assertThat(Files.exists(compilation.taskFilePath("fixtures.Tasks_Inner"))).isFalse();
     }
 
     @Test
