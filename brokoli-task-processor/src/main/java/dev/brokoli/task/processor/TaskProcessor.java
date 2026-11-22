@@ -19,6 +19,7 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -37,7 +38,10 @@ import java.util.TreeSet;
  * <p>A method that cannot be a task is refused with a compile error on that method or parameter: one that is not
  * {@code public static}, sits in a class the harness cannot reach, takes or returns something other than
  * {@code Rows} or a {@code List} of a record, has a parameter or {@code @Default} the task interface cannot
- * describe, or uses a record or enum that code in its own package cannot reach.
+ * describe, or uses a record or enum that code in its own package cannot reach. A nested class is flattened
+ * with {@code _}, so a nested {@code Tasks.Inner} and a top-level {@code Tasks_Inner} would both give
+ * {@code Tasks_Inner_BrokoliTasks}: the one read second is refused with a compile error naming both, and gets
+ * neither file.
  *
  * <p>The task file is written in UTF-8 whatever the build's source encoding. Since JDK 23, javac runs no processor
  * it finds on the classpath, so the build has to name this one, for example in {@code annotationProcessorPaths} of
@@ -62,6 +66,7 @@ public final class TaskProcessor extends AbstractProcessor {
 
     private final TaskReader reader = new TaskReader();
     private final Set<String> deferred = new TreeSet<>();
+    private final Map<String, String> taskClasses = new HashMap<>();
 
     /**
      * Creates the processor. javac creates it through {@code META-INF/services}.
@@ -135,7 +140,8 @@ public final class TaskProcessor extends AbstractProcessor {
             deferred.add(owner.getQualifiedName().toString());
             return;
         }
-        if (refusals.isEmpty()) {
+        boolean claimed = claimTaskClass(owner);
+        if (refusals.isEmpty() && claimed) {
             write(owner, tasks);
             writeTaskClass(owner, taskMethods);
         }
@@ -153,6 +159,19 @@ public final class TaskProcessor extends AbstractProcessor {
             }
         }
         return methods;
+    }
+
+    private boolean claimTaskClass(TypeElement owner) {
+        String taskClass = TaskClassWriter.qualifiedName(owner);
+        String claimant = owner.getQualifiedName().toString();
+        String earlier = taskClasses.putIfAbsent(taskClass, claimant);
+        if (earlier == null) {
+            return true;
+        }
+        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "@Task classes " + earlier + " and "
+                + claimant + " both give the generated class " + taskClass
+                + ", because a nested class is flattened with _; rename one of them", owner);
+        return false;
     }
 
     private static void checkUnique(ExecutableElement method, TypeElement owner, Set<String> methods) {
