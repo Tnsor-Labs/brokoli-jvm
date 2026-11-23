@@ -14,6 +14,8 @@ Two Python bundles are there too, for the benchmarks to compare a JVM task with 
 - `python-noop`: `noop(input=())`, which returns its input. Like the JVM `Noop`, it declares no interface, so it runs as a source with no input, and core's digest of that is the one the JVM `Noop` bundle has.
 - `python-paid`: `paid(input)`, which keeps the rows whose `paid` is true, over records of six columns.
 
+`bundles/limits.json` holds the caps core puts on a task bundle when it is uploaded: `max_archive_bytes`, the size of the gzipped archive, `max_total_bytes`, the sizes of its regular files added up, and `max_entries`, the number of tar entries, directories included. `vendor.sh` writes it with `bundles/limits/limits.go`, which it runs inside the core checkout as it does `assemble.go`. It reads core's `taskbundlev2.MaxArchiveBytes` and `MaxArchiveEntries`, and checks each cap against core's own `taskbundlev2.Extract`: a bundle at the cap is not refused for it, and one over is refused with core's message for that cap. So `check.sh` fails when core changes a cap or how `Extract` applies it.
+
 The bundle plugin's parity test packages the same inputs and compares the result with these bundles below gzip: the manifest, the file list and the uncompressed tar. The gzip bytes are not compared, because neither Go nor zlib promises the same compressed bytes across versions.
 
 ## Checking and re-vendoring
