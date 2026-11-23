@@ -169,6 +169,10 @@ Every entry names its owner.
   of every differential vector. Two Python bundles, a no-op and one that
   keeps the paid rows, are built with core's own `taskbundlev2.Assemble`
   for the benchmarks to compare a JVM task with a Python one.
+  `bundles/limits.json` holds the caps core puts on an uploaded bundle:
+  its size, the total size of its files and its number of entries, each
+  checked against core's own `taskbundlev2.Extract` at the cap and one
+  over it.
 - **Same task file on every JDK** -- @DarzVadckawy. A `float64` in the task
   file is written as the shortest text that reads back as the same number,
   in the form RFC 8785, Go and JavaScript use (`1e+23`, `5e-324`), so a

@@ -46,6 +46,14 @@ for case in "$here"/bundles/python/*/; do
     fi
 done
 
+if [ ! -f "$here/bundles/limits.json" ]; then
+    echo "no vendored task bundle caps: bundles/limits.json"
+    status=1
+elif ! cmp -s "$here/bundles/limits.json" "$fresh/bundles/limits.json"; then
+    echo "differs from core's task bundle caps: bundles/limits.json"
+    status=1
+fi
+
 if [ "$status" -eq 0 ]; then
     echo "core-contract matches core at $(git -C "$core" rev-parse HEAD)"
 fi

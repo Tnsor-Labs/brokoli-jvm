@@ -1,0 +1,5 @@
+{
+  "max_archive_bytes": 67108864,
+  "max_total_bytes": 67108864,
+  "max_entries": 10000
+}

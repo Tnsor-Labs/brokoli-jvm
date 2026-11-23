@@ -24,6 +24,9 @@ for args in "$here"/bundles/*.args; do
 done
 
 assembler="$(mktemp -d "$core/brokoli-jvm-assemble.XXXXXX")"
-trap 'rm -rf "$assembler"' EXIT
+limiter="$(mktemp -d "$core/brokoli-jvm-limits.XXXXXX")"
+trap 'rm -rf "$assembler" "$limiter"' EXIT
 cp "$here/bundles/python/assemble.go" "$assembler/main.go"
 (cd "$core" && GOTOOLCHAIN="${toolchain:-auto}" go run "./$(basename "$assembler")" "$here/bundles/python" "$out/bundles")
+cp "$here/bundles/limits/limits.go" "$limiter/main.go"
+(cd "$core" && GOTOOLCHAIN="${toolchain:-auto}" go run "./$(basename "$limiter")" "$out/bundles/limits.json")
