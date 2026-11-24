@@ -33,7 +33,9 @@ public final class TaskBundles {
      * @throws BundleException if there is no task file, a task file is not valid, two files would have the same
      *         path in the bundle, a file would be the bundle's {@code manifest.json} or inside a directory of that
      *         name, a file's path would also be the directory of another file, a file is a symbolic link or cannot
-     *         be read, or a path or name is not valid Unicode
+     *         be read, a path or name is not valid Unicode, or the bundles would be over a cap core applies on upload:
+     *         more than 10000 tar entries, directories included, or more than 64 MiB of files, with a message
+     *         naming the count or the size and what holds the most
      */
     public static List<TaskBundle> of(Path classesDirectory, List<Path> jars, String builder) {
         Objects.requireNonNull(classesDirectory, "classesDirectory");
@@ -53,6 +55,8 @@ public final class TaskBundles {
                 bundles.add(new TaskBundle(task, files, sourceDigest, builder));
             }
         }
+        long largestManifest = bundles.stream().mapToLong(TaskBundle::manifestBytes).max().orElse(0);
+        BundleCaps.requireWithinFileCaps(files, largestManifest);
         return List.copyOf(bundles);
     }
 }

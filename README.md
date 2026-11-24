@@ -74,7 +74,7 @@ The processor leaves `@Task` and `@Default` unclaimed, so other processors still
 </plugin>
 ```
 
-`mvn package` then writes `target/<finalName>-<method>.tar.gz` for each task and prints its digest, the `sha256:` a pipeline uses to reference it. Each bundle is attached with the method name as its classifier, so `mvn install` and `mvn deploy` publish it next to the jar. A bundle holds the project's classes and resources, and the jar of every `compile` and `runtime` dependency under `lib/`, `brokoli-task` included. `-Dbrokoli.bundle.skip` skips the goal.
+`mvn package` then writes `target/<finalName>-<method>.tar.gz` for each task and prints its digest, the `sha256:` a pipeline uses to reference it. Each bundle is attached with the method name as its classifier, so `mvn install` and `mvn deploy` publish it next to the jar. A bundle holds the project's classes and resources, and the jar of every `compile` and `runtime` dependency under `lib/`, `brokoli-task` included. The build fails on a bundle core would refuse on upload: more than 10000 entries, more than 64 MiB of files, or an archive over 64 MiB, with a message naming what takes the most. `-Dbrokoli.bundle.skip` skips the goal.
 
 ## Building a pipeline
 

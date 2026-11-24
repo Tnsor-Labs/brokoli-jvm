@@ -11,6 +11,14 @@ Every entry names its owner.
 
 ### Fixed
 
+- **Bundles over core's caps** -- @DarzVadckawy. `brokoli:bundle` and
+  `Pipeline.task` refuse a bundle that core would refuse on upload: more
+  than 10000 tar entries, directories included, more than 64 MiB of
+  files, or an archive over 64 MiB. The message names the cap, the
+  bundle's size or entry count, and the five largest files or the five
+  directories with the most entries, where before `mvn package` wrote the
+  bundle and the upload failed. The plugin deletes a bundle it refused
+  while writing it.
 - **Errors from the generated entry methods** -- @DarzVadckawy. A task
   that returns NaN or an infinity in a `double` or `float` fails with the
   value's path, such as `result[3].score is NaN, expected a finite

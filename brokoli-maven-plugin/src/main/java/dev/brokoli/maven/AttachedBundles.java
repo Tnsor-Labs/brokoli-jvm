@@ -50,6 +50,9 @@ final class AttachedBundles {
             Path file = outputDirectory.resolve(finalName + "-" + bundle.method() + "." + TYPE);
             try (OutputStream out = new BufferedOutputStream(Files.newOutputStream(file))) {
                 written.add(new Written(bundle, file, bundle.writeTo(out)));
+            } catch (BundleException overCap) {
+                Files.deleteIfExists(file);
+                throw overCap;
             }
         }
         return List.copyOf(written);
