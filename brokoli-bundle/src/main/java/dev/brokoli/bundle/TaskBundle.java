@@ -29,6 +29,7 @@ public final class TaskBundle {
     private final TaskEntry task;
     private final List<BundleFile> files;
     private final Manifest manifest;
+    private final long manifestBytes;
 
     TaskBundle(TaskEntry task, List<BundleFile> files, String sourceDigest, String builder) {
         this.task = task;
@@ -36,6 +37,11 @@ public final class TaskBundle {
         this.manifest = new Manifest(task.name(), TaskInterfaces.interfaceDigest(task.nodeInterface()), sourceDigest,
                 builder, List.of(Payload.jvm(task.module(), task.symbol(), sourceDigest)),
                 files.stream().map(FileEntry::of).toList());
+        this.manifestBytes = ManifestJson.write(manifest).length;
+    }
+
+    long manifestBytes() {
+        return manifestBytes;
     }
 
     /**
@@ -120,6 +126,7 @@ public final class TaskBundle {
      *
      * @return {@code sha256:} and the SHA-256 of the archive's bytes, which a {@code task} node uses to reference
      *         the bundle
+     * @throws BundleException if the archive would be larger than the 64 MiB core accepts on upload
      */
     public String digest() {
         try {
@@ -135,11 +142,14 @@ public final class TaskBundle {
      * @param out where to write the archive
      * @return the bundle's digest, {@code sha256:} and the SHA-256 of the bytes written, which a pipeline uses to
      *         reference the bundle
+     * @throws BundleException if the archive is larger than the 64 MiB core accepts on upload, once it is written,
+     *         with a message naming its size and its largest files
      * @throws IOException if the stream cannot be written
      */
     public String writeTo(OutputStream out) throws IOException {
         MessageDigest digest = Digests.sha256();
-        BundleArchive.write(files, manifest, new DigestOutputStream(out, digest));
+        long written = BundleArchive.write(files, manifest, new DigestOutputStream(out, digest));
+        BundleCaps.requireWithinArchiveCap(task.name(), written, files, manifestBytes);
         return Digests.digest(digest);
     }
 }

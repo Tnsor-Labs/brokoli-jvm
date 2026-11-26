@@ -19,10 +19,12 @@ final class BundleArchive {
     private BundleArchive() {
     }
 
-    static void write(List<BundleFile> sortedFiles, Manifest manifest, OutputStream out) throws IOException {
-        try (GZIPOutputStream gzip = new GZIPOutputStream(new Unclosed(out), GZIP_BUFFER)) {
+    static long write(List<BundleFile> sortedFiles, Manifest manifest, OutputStream out) throws IOException {
+        Unclosed counted = new Unclosed(out);
+        try (GZIPOutputStream gzip = new GZIPOutputStream(counted, GZIP_BUFFER)) {
             writeTar(sortedFiles, manifest, gzip);
         }
+        return counted.written;
     }
 
     static void writeTar(List<BundleFile> sortedFiles, Manifest manifest, OutputStream out) throws IOException {
@@ -37,7 +39,7 @@ final class BundleArchive {
         tar.finish();
     }
 
-    private static SortedSet<String> directories(List<BundleFile> files) {
+    static SortedSet<String> directories(List<BundleFile> files) {
         SortedSet<String> directories = new TreeSet<>(Utf8.ORDER);
         for (BundleFile file : files) {
             String path = file.path();
@@ -50,13 +52,22 @@ final class BundleArchive {
 
     private static final class Unclosed extends FilterOutputStream {
 
+        private long written;
+
         Unclosed(OutputStream out) {
             super(out);
         }
 
         @Override
+        public void write(int b) throws IOException {
+            out.write(b);
+            written++;
+        }
+
+        @Override
         public void write(byte[] bytes, int offset, int length) throws IOException {
             out.write(bytes, offset, length);
+            written += length;
         }
 
         @Override

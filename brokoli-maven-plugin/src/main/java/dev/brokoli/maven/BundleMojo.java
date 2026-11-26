@@ -32,7 +32,9 @@ import java.util.Set;
  * jar of a {@code compile} or {@code runtime} dependency under {@code lib/}, which includes {@code brokoli-task}.
  * A {@code provided} dependency is left out. The manifest's {@code name} is the task's display name, and its
  * entrypoint is the entry method the task processor generated. The goal fails when the project has no task file,
- * when two dependencies have the same jar file name, or when two tasks have the same method name.
+ * when two dependencies have the same jar file name, when two tasks have the same method name, or when a bundle
+ * would be over a cap core applies on upload: more than 10000 tar entries, more than 64 MiB of files, or an archive
+ * over 64 MiB. The message names the size or the count and the files or directories that hold the most.
  */
 @Mojo(name = "bundle", defaultPhase = LifecyclePhase.PACKAGE,
         requiresDependencyResolution = ResolutionScope.RUNTIME, threadSafe = true)

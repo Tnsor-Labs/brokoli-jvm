@@ -432,7 +432,8 @@ public final class Pipeline {
      * @throws PipelineException if the pipeline has no task project, the project has no such task, an input belongs
      *         to another pipeline, or the task declares a parameter that another task of the pipeline declares
      *         differently
-     * @throws dev.brokoli.bundle.BundleException if the task project cannot be packaged
+     * @throws dev.brokoli.bundle.BundleException if the task project cannot be packaged, or its bundle would be over
+     *         a cap core applies on upload
      * @throws NullPointerException if a value is {@code null}
      */
     public NodeRef task(Class<?> taskClass, String method, NodeRef... inputs) {

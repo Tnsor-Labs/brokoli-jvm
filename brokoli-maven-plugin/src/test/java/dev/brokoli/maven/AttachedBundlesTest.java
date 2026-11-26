@@ -14,6 +14,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Random;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -21,8 +22,25 @@ import static org.assertj.core.api.Assertions.tuple;
 
 class AttachedBundlesTest {
 
+    private static final int UNDER_THE_CAP = 64 * 1024 * 1024 - 2048;
+    private static final long SEED = 27;
+
     @TempDir
     Path project;
+
+    @Test
+    void deletesTheArchiveItWasWritingWhenItIsOverCoresCap() throws IOException {
+        Path classes = taskFile("com.example.Transforms", "dailyRollup");
+        byte[] incompressible = new byte[UNDER_THE_CAP];
+        new Random(SEED).nextBytes(incompressible);
+        Files.write(classes.resolve("random.bin"), incompressible);
+
+        assertThatThrownBy(() -> AttachedBundles.write(TaskBundles.of(classes, List.of(), null),
+                project.resolve("target"), "tasks-1.0"))
+                .isInstanceOf(BundleException.class)
+                .hasMessageStartingWith("the task bundle of dailyRollup would be ");
+        assertThat(project.resolve("target/tasks-1.0-dailyRollup.tar.gz")).doesNotExist();
+    }
 
     @Test
     void writesOneArchivePerTaskNamedByTheFinalNameAndTheMethod() throws IOException, NoSuchAlgorithmException {

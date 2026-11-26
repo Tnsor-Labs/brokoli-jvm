@@ -56,3 +56,11 @@ Two new modules. `brokoli-bundle` is a library that reads the task files the pro
 ## Follow-ups
 
 - #27: refuse a bundle over core's size and entry caps at build time, instead of leaving it to the upload.
+
+## Update (2026-11-24)
+
+`brokoli-bundle` refuses a bundle core would refuse on upload (#27). Core's `taskbundlev2.Extract` caps an archive at 64 MiB, the regular files it holds at 64 MiB added up, and the tar entries at 10000, directories included, and the upload handler refuses an archive over 64 MiB before that. Before, `mvn package` wrote such a bundle without complaint and the failure only showed on upload.
+
+- **Where.** In the library, as the Python SDK checks its size in its packager (`brokoli/taskbundle.py`), so `brokoli:bundle` and `Pipeline.task` both refuse. `TaskBundles.of` refuses too many entries or bytes of files before anything is written; every bundle of a project holds the same files, so the check is made once, with the largest manifest. The compressed size is only known once the archive is written, so `TaskBundle.writeTo` counts it and refuses after writing, and the plugin deletes the file it was writing. Files that are already compressed, such as jars, can make the archive larger than the files.
+- **The message** names the cap, the bundle's size in bytes and MiB or its entry count, and what holds the most: the five largest files for a byte cap, or the five directories with the most entries for the entry cap.
+- **The caps** are core's, vendored in `core-contract/bundles/limits.json`, which `vendor.sh` checks against core's own `Extract` at each cap and one over it. A test compares the SDK's caps with that file, so a change in core fails a test here.

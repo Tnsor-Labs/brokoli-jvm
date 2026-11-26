@@ -3,7 +3,8 @@ package dev.brokoli.bundle;
 /**
  * Thrown when a project's tasks cannot be packaged, with a message naming the file, task or value that is the
  * reason: a task file that is not valid, two files that would have the same path in the bundle, a file that
- * cannot be read, or a path or name that is not valid Unicode.
+ * cannot be read, a path or name that is not valid Unicode, or a bundle over one of the caps core applies on
+ * upload.
  *
  * @serial exclude
  */
