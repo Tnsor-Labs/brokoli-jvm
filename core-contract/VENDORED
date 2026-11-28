@@ -1,3 +1,9 @@
+docs/schema/dataset-schema-v1.json
+docs/schema/fixtures/dataset-schema-v1/negative/bad-column-type.json
+docs/schema/fixtures/dataset-schema-v1/negative/missing-contract.json
+docs/schema/fixtures/dataset-schema-v1/negative/unknown-property.json
+docs/schema/fixtures/dataset-schema-v1/positive/basic.json
+docs/schema/fixtures/dataset-schema-v1/positive/open-record.json
 docs/schema/fixtures/ir-canonicalization/rendering.json
 docs/schema/fixtures/task-bundle-v2/negative/bad-digest-format.json
 docs/schema/fixtures/task-bundle-v2/negative/container-payload-missing-image.json
