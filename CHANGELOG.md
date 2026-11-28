@@ -46,6 +46,18 @@ Every entry names its owner.
 
 ### Added
 
+- **Dataset schemas** -- @DarzVadckawy. `sourceApi`, `sourceDb` and
+  `sourceFile` take a `schema`, the columns of the rows they read, made
+  from `DatasetSchema`, `Column`, `DataType` and `RecordField` and written
+  as core's `brokoli.dataset-schema/v1`. Each column type has a factory,
+  and a union, which core refuses in a dataset schema, has none. When both
+  inputs of a `join` declare a schema, or are joins that wrote one, the
+  join writes the schema of its output as the Python SDK derives it, and
+  refuses a key that is not a column of its side's schema, keys whose
+  types differ, and a right column its collision policy cannot name, each
+  with a message that names the join and the columns. The `dataset_schema`
+  and `dataset_schema_join` pipelines of `python-reference/` render byte
+  for byte as the Python SDK renders them.
 - **HTTP, code and notify nodes** -- @DarzVadckawy. `sourceApi` reads
   the records an HTTP endpoint returns as a dataset, `sinkApi` sends its
   input's rows to one in batches, `code` runs a Python or TypeScript
@@ -69,8 +81,7 @@ Every entry names its owner.
   without an alias, an alias with another policy, and an upsert without key
   columns cannot be built. The `data` and `join_collision_alias` pipelines
   of `python-reference/` render byte for byte as the Python SDK renders
-  them. `Join`'s Javadoc says it writes no schema yet, where the Python SDK
-  writes the one it derives from two declared input schemas (#43).
+  them.
 - **How we work** -- @DarzVadckawy. Issues open with one of three forms,
   Feature, Bug or Task, which set the issue's type and ask for the
   problem, the approach, what done means and what is out of scope; the

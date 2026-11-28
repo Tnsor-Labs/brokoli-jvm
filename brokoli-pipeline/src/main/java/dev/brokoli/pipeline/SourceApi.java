@@ -29,11 +29,12 @@ import java.util.Optional;
  * @param connId the connection whose base URL and credentials the request uses, if set
  * @param records the dot path to the list of records in the body, such as {@code "data.items"}, if set
  * @param sourceType the fetcher the server reads the endpoint with, {@code "rest"} on the server unless set
+ * @param schema the columns of the records, if declared
  * @param node the options every node has
  */
 public record SourceApi(String url, String method, Map<String, String> headers, Map<String, String> params,
         Optional<Object> body, Optional<String> connId, Optional<String> records, Optional<String> sourceType,
-        NodeOptions node) implements WithPool<SourceApi> {
+        Optional<DatasetSchema> schema, NodeOptions node) implements WithPool<SourceApi> {
 
     private static final String GET = "GET";
 
@@ -48,6 +49,7 @@ public record SourceApi(String url, String method, Map<String, String> headers, 
      * @param connId the connection, if set
      * @param records the records path, if set
      * @param sourceType the fetcher, if set
+     * @param schema the columns of the records, if declared
      * @param node the options every node has
      * @throws NullPointerException if a value, or a name or value in the headers or the query parameters, is
      *         {@code null}
@@ -61,18 +63,19 @@ public record SourceApi(String url, String method, Map<String, String> headers, 
         Objects.requireNonNull(connId, "connId");
         Objects.requireNonNull(records, "records");
         Objects.requireNonNull(sourceType, "sourceType");
+        Objects.requireNonNull(schema, "schema");
         Objects.requireNonNull(node, "node");
     }
 
     /**
-     * The default options: no URL, {@code GET}, no headers, query parameters, body, connection, records path or
-     * fetcher, and {@link NodeOptions#defaults()}.
+     * The default options: no URL, {@code GET}, no headers, query parameters, body, connection, records path,
+     * fetcher or schema, and {@link NodeOptions#defaults()}.
      *
      * @return the default options
      */
     public static SourceApi options() {
         return new SourceApi("", GET, Map.of(), Map.of(), Optional.empty(), Optional.empty(), Optional.empty(),
-                Optional.empty(), NodeOptions.defaults());
+                Optional.empty(), Optional.empty(), NodeOptions.defaults());
     }
 
     /**
@@ -83,7 +86,7 @@ public record SourceApi(String url, String method, Map<String, String> headers, 
      * @return the new options
      */
     public SourceApi url(String url) {
-        return new SourceApi(url, method, headers, params, body, connId, records, sourceType, node);
+        return new SourceApi(url, method, headers, params, body, connId, records, sourceType, schema, node);
     }
 
     /**
@@ -93,7 +96,7 @@ public record SourceApi(String url, String method, Map<String, String> headers, 
      * @return the new options
      */
     public SourceApi method(String method) {
-        return new SourceApi(url, method, headers, params, body, connId, records, sourceType, node);
+        return new SourceApi(url, method, headers, params, body, connId, records, sourceType, schema, node);
     }
 
     /**
@@ -103,7 +106,7 @@ public record SourceApi(String url, String method, Map<String, String> headers, 
      * @return the new options
      */
     public SourceApi headers(Map<String, String> headers) {
-        return new SourceApi(url, method, headers, params, body, connId, records, sourceType, node);
+        return new SourceApi(url, method, headers, params, body, connId, records, sourceType, schema, node);
     }
 
     /**
@@ -113,7 +116,7 @@ public record SourceApi(String url, String method, Map<String, String> headers, 
      * @return the new options
      */
     public SourceApi params(Map<String, String> params) {
-        return new SourceApi(url, method, headers, params, body, connId, records, sourceType, node);
+        return new SourceApi(url, method, headers, params, body, connId, records, sourceType, schema, node);
     }
 
     /**
@@ -124,7 +127,7 @@ public record SourceApi(String url, String method, Map<String, String> headers, 
      */
     public SourceApi body(Object body) {
         return new SourceApi(url, method, headers, params, Optional.of(Objects.requireNonNull(body, "body")), connId,
-                records, sourceType, node);
+                records, sourceType, schema, node);
     }
 
     /**
@@ -135,7 +138,7 @@ public record SourceApi(String url, String method, Map<String, String> headers, 
      */
     public SourceApi connId(String connId) {
         return new SourceApi(url, method, headers, params, body, Optional.of(Objects.requireNonNull(connId,
-                "connId")), records, sourceType, node);
+                "connId")), records, sourceType, schema, node);
     }
 
     /**
@@ -146,7 +149,7 @@ public record SourceApi(String url, String method, Map<String, String> headers, 
      */
     public SourceApi records(String records) {
         return new SourceApi(url, method, headers, params, body, connId, Optional.of(Objects.requireNonNull(records,
-                "records")), sourceType, node);
+                "records")), sourceType, schema, node);
     }
 
     /**
@@ -157,7 +160,19 @@ public record SourceApi(String url, String method, Map<String, String> headers, 
      */
     public SourceApi sourceType(String sourceType) {
         return new SourceApi(url, method, headers, params, body, connId, records,
-                Optional.of(Objects.requireNonNull(sourceType, "sourceType")), node);
+                Optional.of(Objects.requireNonNull(sourceType, "sourceType")), schema, node);
+    }
+
+    /**
+     * These options with the columns of the records the endpoint returns. A {@code join} of two nodes that declare
+     * a schema writes the schema of its output.
+     *
+     * @param schema the columns, such as {@code DatasetSchema.of(Column.of("id", DataType.int64())).closed()}
+     * @return the new options
+     */
+    public SourceApi schema(DatasetSchema schema) {
+        return new SourceApi(url, method, headers, params, body, connId, records, sourceType,
+                Optional.of(Objects.requireNonNull(schema, "schema")), node);
     }
 
     /**
@@ -168,6 +183,6 @@ public record SourceApi(String url, String method, Map<String, String> headers, 
      */
     @Override
     public SourceApi node(NodeOptions node) {
-        return new SourceApi(url, method, headers, params, body, connId, records, sourceType, node);
+        return new SourceApi(url, method, headers, params, body, connId, records, sourceType, schema, node);
     }
 }

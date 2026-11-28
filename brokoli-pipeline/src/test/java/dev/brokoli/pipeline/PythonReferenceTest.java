@@ -36,6 +36,9 @@ class PythonReferenceTest {
                 Arguments.of("join_collision_alias", EXPECTED,
                         (Supplier<Pipeline>) PythonReferenceTest::joinCollisionAlias),
                 Arguments.of("io_options", EXPECTED, (Supplier<Pipeline>) PythonReferenceTest::ioOptions),
+                Arguments.of("dataset_schema", EXPECTED, (Supplier<Pipeline>) PythonReferenceTest::datasetSchema),
+                Arguments.of("dataset_schema_join", EXPECTED,
+                        (Supplier<Pipeline>) PythonReferenceTest::datasetSchemaJoin),
                 Arguments.of("sla_utc", LOCAL_EXPECTED, (Supplier<Pipeline>) PythonReferenceTest::slaUtc),
                 Arguments.of("retry_delay_only", LOCAL_EXPECTED,
                         (Supplier<Pipeline>) PythonReferenceTest::retryDelayOnly),
@@ -169,6 +172,25 @@ class PythonReferenceTest {
         p.notify("Tell", db, Notify.webhook("https://hooks.example.com/notify")
                 .retries(2)
                 .retryDelay(Duration.ofMillis(1000)));
+        return p;
+    }
+
+    private static Pipeline datasetSchema() {
+        Pipeline p = Pipeline.builder("Dataset Schema").pipelineId("dataset-schema").build();
+        p.sourceApi("Fetch", SourceApi.options()
+                .url("https://example.test/data")
+                .schema(DatasetSchema.of(Column.of("id", DataType.int64()),
+                        Column.of("name", DataType.string().nullable())).closed()));
+        return p;
+    }
+
+    private static Pipeline datasetSchemaJoin() {
+        Pipeline p = Pipeline.builder("Dataset Schema Join").pipelineId("dataset-schema-join").build();
+        DatasetSchema rows = DatasetSchema.of(Column.of("id", DataType.int64()), Column.of("name", DataType.string()))
+                .closed();
+        DatasetRef left = p.sourceApi("Left", SourceApi.options().url("https://example.test/left").schema(rows));
+        DatasetRef right = p.sourceApi("Right", SourceApi.options().url("https://example.test/right").schema(rows));
+        p.join("Merge", left, right, Join.options().on("id").rightAlias("right_row"));
         return p;
     }
 

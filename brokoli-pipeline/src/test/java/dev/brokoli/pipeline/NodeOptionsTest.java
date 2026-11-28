@@ -93,7 +93,7 @@ class NodeOptionsTest {
         List<Map<String, Object>> rules = List.of(Map.of("type", "deduplicate"));
 
         assertThat(SourceFile.options().path("/in.csv").format("json").connId("lake").node(pooled))
-                .isEqualTo(new SourceFile("/in.csv", "json", Optional.of("lake"), pooled));
+                .isEqualTo(new SourceFile("/in.csv", "json", Optional.of("lake"), Optional.empty(), pooled));
         assertThat(SinkFile.options().path("/out.csv").compress("gzip").connId("lake").node(pooled))
                 .isEqualTo(new SinkFile("/out.csv", "csv", Optional.of("gzip"), Optional.of("lake"), pooled));
         assertThat(Bash.options().command("./run.sh").workingDir("/jobs").env(Map.of("A", "1")).maxMemoryMb(64)
