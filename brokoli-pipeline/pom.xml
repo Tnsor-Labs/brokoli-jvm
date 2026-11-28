@@ -64,6 +64,7 @@
                 <configuration>
                     <systemPropertyVariables>
                         <brokoli.python-reference>${project.basedir}/../python-reference</brokoli.python-reference>
+                        <brokoli.core-contract>${project.basedir}/../core-contract</brokoli.core-contract>
                         <brokoli.version>${project.version}</brokoli.version>
                     </systemPropertyVariables>
                 </configuration>
