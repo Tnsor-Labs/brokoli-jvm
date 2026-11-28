@@ -47,6 +47,24 @@ class SourceApiTest {
     }
 
     @Test
+    void writesTheSchemaAfterTheRecordsPathAndBeforeTheRetriesAsThePythonSdkDoes() {
+        Pipeline p = Pipeline.builder("Items").build();
+
+        p.sourceApi("Fetch", SourceApi.options()
+                .retries(1)
+                .schema(DatasetSchema.of(Column.of("id", DataType.int64())).closed())
+                .records("items")
+                .url("/items"));
+
+        assertThat(config(p).toString()).isEqualTo("""
+                {"url":"/items","method":"GET","response":"dataset","records":"items",\
+                "schema":{"contract":"brokoli.dataset-schema/v1","columns":[{"name":"id","type":{"kind":"int64"}}],\
+                "additional_columns":"closed"},"max_retries":1,"retry_backoff":"exponential",\
+                "_schema_hint":"api_response"}""");
+        assertThat(CoreSchema.pipelineErrors(p.toJson())).isEmpty();
+    }
+
+    @Test
     void writesAGetForADatasetWithOnlyTheUrlAsADatasetSource() {
         Pipeline p = Pipeline.builder("Items").build();
 

@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.TreeMap;
 
 /**
@@ -67,6 +68,7 @@ public final class Pipeline {
     private final Map<String, Integer> counters = new HashMap<>();
     private final Map<String, JsonNode> parameters = new LinkedHashMap<>();
     private final Map<String, TaskBundle> bundles = new LinkedHashMap<>();
+    private final Map<String, DatasetSchema> schemas = new HashMap<>();
     private List<TaskBundle> packaged;
 
     private Pipeline(Builder builder) {
@@ -112,10 +114,11 @@ public final class Pipeline {
         ObjectNode config = JSON.objectNode();
         config.put(IrFields.PATH, options.path());
         config.put(IrFields.FORMAT, options.format());
+        writeSchema(config, options.schema());
         options.connId().ifPresent(connId -> config.put(IrFields.CONN_ID, connId));
         options.node().writeRetriesAndTimeout(config);
         options.node().writePool(config);
-        return new DatasetRef(add(IrFields.SOURCE_FILE, name, config, null, List.of(), options.node()), this);
+        return dataset(add(IrFields.SOURCE_FILE, name, config, null, List.of(), options.node()), options.schema());
     }
 
     /**
@@ -217,27 +220,37 @@ public final class Pipeline {
         config.put(IrFields.QUERY, options.query());
         options.connId().ifPresent(connId -> config.put(IrFields.CONN_ID, connId));
         options.uri().ifPresent(uri -> config.put(IrFields.URI, uri));
+        writeSchema(config, options.schema());
         options.node().writeRetriesAndTimeout(config);
         options.node().writePool(config);
         config.put(IrFields.SCHEMA_HINT, IrFields.QUERY_RESULT);
-        return new DatasetRef(add(IrFields.SOURCE_DB, name, config, null, List.of(), options.node()), this);
+        return dataset(add(IrFields.SOURCE_DB, name, config, null, List.of(), options.node()), options.schema());
     }
 
     /**
-     * Adds a {@code join} node that joins two nodes' outputs. The edge from the left input is drawn first.
+     * Adds a {@code join} node that joins two nodes' outputs. The edge from the left input is drawn first. When
+     * both inputs declare a schema, or are joins that wrote one, the join writes the schema of its output as the
+     * Python SDK derives it: the left columns, then the right columns named by the collision policy, without the
+     * right key when both keys have the same name. It is closed when both inputs' schemas are closed, and
+     * {@link AdditionalColumns#UNKNOWN} otherwise.
      *
      * @param name the node's name, such as {@code "Enrich"}
      * @param left the node whose output is the left side
      * @param right the node whose output is the right side
      * @param options the key columns, the join type, the collision policy and the node's options
      * @return the node
-     * @throws PipelineException if an input belongs to another pipeline, or the node key is the id of another node
-     *         of the pipeline
+     * @throws PipelineException if an input belongs to another pipeline, the node key is the id of another node of
+     *         the pipeline, or both inputs declare a schema and a key is not a column of its side's schema, the
+     *         keys' declared types differ with neither being {@code unknown}, the error collision policy meets a
+     *         right column the left input has too, or a right column's name in the output is already taken
      * @throws NullPointerException if a value is {@code null}
      */
     public DatasetRef join(String name, NodeRef left, NodeRef right, Join options) {
+        Objects.requireNonNull(name, "name");
         Objects.requireNonNull(left, "left");
         Objects.requireNonNull(right, "right");
+        requireOwn(left);
+        requireOwn(right);
         ObjectNode config = JSON.objectNode();
         config.put(IrFields.JOIN_TYPE, options.type().irValue());
         config.put(IrFields.LEFT_KEY, options.leftKey());
@@ -245,7 +258,9 @@ public final class Pipeline {
         config.put(IrFields.COLLISION_POLICY, options.collisionPolicy().irValue());
         options.rightAlias().ifPresent(alias -> config.put(IrFields.RIGHT_ALIAS, alias));
         options.node().writeRetriesAndTimeout(config);
-        return new DatasetRef(add(IrFields.JOIN, name, config, null, List.of(left, right), options.node()), this);
+        Optional<DatasetSchema> schema = joinSchema(name, left, right, options);
+        writeSchema(config, schema);
+        return dataset(add(IrFields.JOIN, name, config, null, List.of(left, right), options.node()), schema);
     }
 
     /**
@@ -327,11 +342,12 @@ public final class Pipeline {
         options.connId().ifPresent(connId -> config.put(IrFields.CONN_ID, connId));
         putStrings(config, IrFields.PARAMS, options.params());
         options.records().ifPresent(records -> config.put(IrFields.RECORDS, records));
+        writeSchema(config, options.schema());
         options.node().writeRetriesAndTimeout(config);
         options.sourceType().ifPresent(sourceType -> config.put(IrFields.SOURCE_TYPE, sourceType));
         options.node().writePool(config);
         config.put(IrFields.SCHEMA_HINT, IrFields.API_RESPONSE);
-        return new DatasetRef(add(IrFields.SOURCE_API, name, config, null, List.of(), options.node()), this);
+        return dataset(add(IrFields.SOURCE_API, name, config, null, List.of(), options.node()), options.schema());
     }
 
     /**
@@ -606,6 +622,24 @@ public final class Pipeline {
         options.channel().ifPresent(channel -> config.put(IrFields.CHANNEL, channel));
         options.node().writeRetriesAndTimeout(config);
         return new NodeRef(add(IrFields.NOTIFY, name, config, null, inputs, options.node()), this);
+    }
+
+    private Optional<DatasetSchema> joinSchema(String name, NodeRef left, NodeRef right, Join options) {
+        DatasetSchema leftSchema = schemas.get(left.nodeId());
+        DatasetSchema rightSchema = schemas.get(right.nodeId());
+        if (leftSchema == null || rightSchema == null) {
+            return Optional.empty();
+        }
+        return Optional.of(DatasetSchemas.join(name, leftSchema, rightSchema, options));
+    }
+
+    private static void writeSchema(ObjectNode config, Optional<DatasetSchema> schema) {
+        schema.ifPresent(declared -> config.set(IrFields.SCHEMA, DatasetSchemas.json(declared)));
+    }
+
+    private DatasetRef dataset(String id, Optional<DatasetSchema> schema) {
+        schema.ifPresent(declared -> schemas.put(id, declared));
+        return new DatasetRef(id, this);
     }
 
     private static void putStrings(ObjectNode config, String field, Map<String, String> values) {

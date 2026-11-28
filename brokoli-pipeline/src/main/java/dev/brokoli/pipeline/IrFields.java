@@ -88,6 +88,20 @@ final class IrFields {
     static final String NOTIFY_TYPE = "notify_type";
     static final String MESSAGE = "message";
     static final String CHANNEL = "channel";
+    static final String SCHEMA = "schema";
+    static final String CONTRACT = "contract";
+    static final String COLUMNS = "columns";
+    static final String ADDITIONAL_COLUMNS = "additional_columns";
+    static final String KIND = "kind";
+    static final String NULLABLE = "nullable";
+    static final String PRECISION = "precision";
+    static final String SCALE = "scale";
+    static final String VALUES = "values";
+    static final String ITEMS = "items";
+    static final String KEYS = "keys";
+    static final String FIELDS = "fields";
+    static final String REQUIRED = "required";
+    static final String ADDITIONAL_FIELDS = "additional_fields";
 
     static final String SOURCE_FILE = "source_file";
     static final String SOURCE_API = "source_api";

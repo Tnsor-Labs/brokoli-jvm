@@ -12,9 +12,8 @@ import java.util.Optional;
  * Join.options().on("id", "user_id").rightAlias("user")
  * }</pre>
  *
- * <p>A {@code join} runs in no pool, as in the Python SDK. It writes no {@code schema}: the Python SDK writes the
- * schema it derives for the join's output when both inputs declare a dataset schema, and no node of this builder
- * declares one yet.
+ * <p>A {@code join} runs in no pool, as in the Python SDK. When both inputs declare a {@link DatasetSchema}, it
+ * writes the schema of its output, as {@link Pipeline#join(String, NodeRef, NodeRef, Join)} says.
  *
  * @param leftKey the left input's key column, empty unless set
  * @param rightKey the right input's key column, empty unless set

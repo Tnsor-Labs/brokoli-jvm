@@ -137,6 +137,20 @@ p.notify("Alert", shaped, Notify.slack("https://hooks.slack.com/services/T0/B0/x
 
 A script's language and a message's type are enums too, and each comes with the options it takes: only `Code.python` takes a Python interpreter, only `Code.typescript` a Node executable, and only `Notify.slack` a channel. A `sourceApi` reads a dataset; the scalar and artifact responses come later (#46).
 
+A `sourceApi`, `sourceDb` or `sourceFile` declares the columns of the rows it reads with `schema`. A join of two nodes that declare one writes the schema of its output, as the Python SDK derives it:
+
+```java
+DatasetSchema users = DatasetSchema.of(
+        Column.of("id", DataType.int64()),
+        Column.of("name", DataType.string().nullable())).closed();
+DatasetRef left = p.sourceApi("Users", SourceApi.options().url("/users").schema(users));
+DatasetRef right = p.sourceDb("Orders", SourceDb.options().query("SELECT id, total FROM orders").schema(
+        DatasetSchema.of(Column.of("id", DataType.int64()), Column.of("total", DataType.decimal(18, 2)))));
+p.join("Enrich", left, right, Join.options().on("id"));
+```
+
+Each column type has its factory, such as `DataType.enumOf("new", "paid")`, `DataType.array(DataType.string())` or `DataType.record(RecordField.of("city", DataType.string()))`, and takes no null value unless `nullable()` says so. A union has none, because core refuses it in a dataset schema. A schema may have other columns unless `closed()` says it has none, and a join's schema is closed when both inputs' are. The join is refused while the pipeline is built when a key is not a column of its side's schema, when the keys' types differ and neither is `unknown`, or when its collision policy cannot name a right column.
+
 So far the builder has `sourceFile`, `sourceApi`, `sourceDb`, `transform`, `join`, `qualityCheck`, `code`, `notify`, `sinkFile`, `sinkApi`, `sinkDb`, `bash` and `task`. The other node types come next, one group at a time, each checked against the Python SDK's output in `python-reference/`.
 
 ## How it fits with the rest of Brokoli

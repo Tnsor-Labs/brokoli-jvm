@@ -34,6 +34,24 @@ class SourceDbTest {
     }
 
     @Test
+    void writesTheSchemaAfterTheUriAndBeforeTheRetriesAsThePythonSdkDoes() {
+        Pipeline p = Pipeline.builder("Shop").build();
+
+        p.sourceDb("Orders", SourceDb.options()
+                .retries(2)
+                .schema(DatasetSchema.of(Column.of("id", DataType.int64())))
+                .uri("sqlite:///shop.db")
+                .query("SELECT id FROM orders"));
+
+        assertThat(node(p).path("config").toString()).isEqualTo("""
+                {"query":"SELECT id FROM orders","uri":"sqlite:///shop.db",\
+                "schema":{"contract":"brokoli.dataset-schema/v1","columns":[{"name":"id","type":{"kind":"int64"}}],\
+                "additional_columns":"unknown"},"max_retries":2,"retry_backoff":"exponential",\
+                "_schema_hint":"query_result"}""");
+        assertThat(CoreSchema.pipelineErrors(p.toJson())).isEmpty();
+    }
+
+    @Test
     void writesTheSchemaHintForAnEmptyQueryAsThePythonSdkDoes() {
         Pipeline p = Pipeline.builder("Shop").build();
 

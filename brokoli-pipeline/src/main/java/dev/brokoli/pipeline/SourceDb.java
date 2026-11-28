@@ -14,10 +14,11 @@ import java.util.Optional;
  * @param query the query, empty unless set; the server refuses a {@code source_db} without one
  * @param connId the connection the query runs on, if set
  * @param uri the database's URI, in place of a connection, if set
+ * @param schema the columns of the rows the query returns, if declared
  * @param node the options every node has
  */
-public record SourceDb(String query, Optional<String> connId, Optional<String> uri, NodeOptions node)
-        implements WithPool<SourceDb> {
+public record SourceDb(String query, Optional<String> connId, Optional<String> uri, Optional<DatasetSchema> schema,
+        NodeOptions node) implements WithPool<SourceDb> {
 
     /**
      * Creates the options.
@@ -25,6 +26,7 @@ public record SourceDb(String query, Optional<String> connId, Optional<String> u
      * @param query the query
      * @param connId the connection, if set
      * @param uri the database's URI, if set
+     * @param schema the columns of the rows, if declared
      * @param node the options every node has
      * @throws NullPointerException if a value is {@code null}
      */
@@ -32,16 +34,17 @@ public record SourceDb(String query, Optional<String> connId, Optional<String> u
         Objects.requireNonNull(query, "query");
         Objects.requireNonNull(connId, "connId");
         Objects.requireNonNull(uri, "uri");
+        Objects.requireNonNull(schema, "schema");
         Objects.requireNonNull(node, "node");
     }
 
     /**
-     * The default options: no query, connection or URI, and {@link NodeOptions#defaults()}.
+     * The default options: no query, connection, URI or schema, and {@link NodeOptions#defaults()}.
      *
      * @return the default options
      */
     public static SourceDb options() {
-        return new SourceDb("", Optional.empty(), Optional.empty(), NodeOptions.defaults());
+        return new SourceDb("", Optional.empty(), Optional.empty(), Optional.empty(), NodeOptions.defaults());
     }
 
     /**
@@ -51,7 +54,7 @@ public record SourceDb(String query, Optional<String> connId, Optional<String> u
      * @return the new options
      */
     public SourceDb query(String query) {
-        return new SourceDb(query, connId, uri, node);
+        return new SourceDb(query, connId, uri, schema, node);
     }
 
     /**
@@ -61,7 +64,7 @@ public record SourceDb(String query, Optional<String> connId, Optional<String> u
      * @return the new options
      */
     public SourceDb connId(String connId) {
-        return new SourceDb(query, Optional.of(Objects.requireNonNull(connId, "connId")), uri, node);
+        return new SourceDb(query, Optional.of(Objects.requireNonNull(connId, "connId")), uri, schema, node);
     }
 
     /**
@@ -71,7 +74,18 @@ public record SourceDb(String query, Optional<String> connId, Optional<String> u
      * @return the new options
      */
     public SourceDb uri(String uri) {
-        return new SourceDb(query, connId, Optional.of(Objects.requireNonNull(uri, "uri")), node);
+        return new SourceDb(query, connId, Optional.of(Objects.requireNonNull(uri, "uri")), schema, node);
+    }
+
+    /**
+     * These options with the columns of the rows the query returns. A {@code join} of two nodes that declare a
+     * schema writes the schema of its output.
+     *
+     * @param schema the columns, such as {@code DatasetSchema.of(Column.of("id", DataType.int64())).closed()}
+     * @return the new options
+     */
+    public SourceDb schema(DatasetSchema schema) {
+        return new SourceDb(query, connId, uri, Optional.of(Objects.requireNonNull(schema, "schema")), node);
     }
 
     /**
@@ -82,6 +96,6 @@ public record SourceDb(String query, Optional<String> connId, Optional<String> u
      */
     @Override
     public SourceDb node(NodeOptions node) {
-        return new SourceDb(query, connId, uri, node);
+        return new SourceDb(query, connId, uri, schema, node);
     }
 }
